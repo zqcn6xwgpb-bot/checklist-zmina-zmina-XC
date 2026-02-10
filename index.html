@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чек-лист ХЦ - Баранчик</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, get, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo0IvJJbBSXCs7u2rpZ8fHrwK4Nm5isFo",
+            authDomain: "baranchik-checklist.firebaseapp.com",
+            databaseURL: "https://baranchik-checklist-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "baranchik-checklist",
+            storageBucket: "baranchik-checklist.firebasestorage.app",
+            messagingSenderId: "374378353806",
+            appId: "1:374378353806:web:95ff4b94c14fad8bece5df"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const days = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'Пятниця', 'Субота', 'Неділя'];
+        
+        const categories = {
+            'ОВОЧІ_ТА_ЗЕЛЕНЬ': {
+                name: 'ОВОЧІ ТА ЗЕЛЕНЬ',
+                items: ['Огірок свіжий без шкірки чищений','Помідор рожевий чищений чері','Перець солодкий зачищений','Перець чілі зачищений','Цибуля марс зачищена','Цибуля зелена зачищена','Цибуля ріпчаста маринована','Кінза зачищена','Шпинат зачищений','Кріп зачищений','Петрушка зачищена','Рукола зачищена','Мята зачищена','Тархун зачищений','Картопля відварена чищена','Морква відварена чищена бебі печена','Капуста по-гурійськи','Баклажан','Селера стебло зачищений','Часник чищений']
+            },
+            'МЯСО_ТА_ПТИЦЯ': {
+                name: 'М\'ЯСО ТА ПТИЦЯ',
+                items: ['Яловичина мякоть відварена','Курка стегно шашлик смажене','Курка печінка куряча зачищена','Качка філе мариноване','Телятина']
+            },
+            'РИБА_ТА_МОРЕПРОДУКТИ': {
+                name: 'РИБА ТА МОРЕПРОДУКТИ',
+                items: ['Лосось солоний','Оселедець']
+            },
+            'МОЛОЧНІ_ПРОДУКТИ_ТА_СИРИ': {
+                name: 'МОЛОЧНІ ПРОДУКТИ ТА СИРИ',
+                items: ['Сир імеретинський','Сир сулугуні звичайний','Сир сулугуні копчений','Сир сулугуні мотанка','Сир сулугуні пряний','Сир бринза','Сир пармезан зачищений','Сир з пліснявою зачищений','Сир гауда','Сир Добродар зачищений','Сир рікотта','Сметана 20%','Масло вершкове']
+            },
+            'ЯЙЦЯ': { name: 'ЯЙЦЯ', items: ['Яйця курячі відварені'] },
+            'СОУСИ_ТА_ЗАПРАВКИ': {
+                name: 'СОУСИ ТА ЗАПРАВКИ',
+                items: ['Соус Цезар','Соус Ткемалі','Соус соєво-медовий','Соус яблуко','Заправка горіхова салатна','Заправка на салат з печінкою','Заправка на окрошку','Крем гарбузовий']
+            },
+            'ХЛІБОБУЛОЧНІ_ВИРОБИ': { name: 'ХЛІБОБУЛОЧНІ ВИРОБИ', items: ['Лаваш 115г','Сухарики'] },
+            'ГОРІХИ': { name: 'ГОРІХИ', items: ['Горіх волоський грецький','Горіх кешю','Фундук смажений','Насіння гарбуза'] },
+            'СУХОФРУКТИ_ТА_ФРУКТИ': {
+                name: 'СУХОФРУКТИ ТА ФРУКТИ',
+                items: ['Курага запарена','Інжір вялений','Фініки сушені','Журавлина вялена','Лимон','Виноград','Хурма']
+            },
+            'МІКСИ_ЗЕЛЕНІ': { name: 'МІКСИ ЗЕЛЕНІ', items: ['Мікс салату Цезар','Мікс на теплий з телятиною','Мікс на теплий з печінкою'] },
+            'КОПЧЕНІ_ПРОДУКТИ': { name: 'КОПЧЕНІ ПРОДУКТИ', items: ['Суджук зачищений','Бастурма зачищена','Сало спек','Філе куряче ск золотисте'] },
+            'МАРИНОВАНІ_ОВОЧІ': { name: 'МАРИНОВАНІ ОВОЧІ', items: ['Огірок солоний маринований','Помідори солоні мариновані','Часник солоний'] }
+        };
+
+        let selectedDay = 0;
+        let localData = {};
+        let isLoading = true;
+        let adminMode = false;
+        const ADMIN_PASSWORD = '1234'; // Змініть на свій пароль
+
+        function initData() {
+            Object.keys(categories).forEach(category => {
+                localData[category] = {};
+                categories[category].items.forEach(item => {
+                    const safeKey = item.replace(/[.#$\[\]]/g, '_');
+                    localData[category][safeKey] = days.map(() => ({ norm: '', remainder: '', toPrepare: 0 }));
+                });
+            });
+        }
+
+        async function loadFromFirebase() {
+            try {
+                const snapshot = await get(ref(database, 'checklist-data'));
+                if (snapshot.exists()) {
+                    localData = snapshot.val();
+                    showStatus('✓ Дані завантажено', 'success');
+                } else {
+                    initData();
+                    await saveToFirebase();
+                    showStatus('✓ Створено новий чек-лист', 'success');
+                }
+            } catch (error) {
+                initData();
+                showStatus('⚠ Помилка з\'єднання', 'warning');
+            } finally {
+                isLoading = false;
+                renderUI();
+            }
+        }
+
+        async function saveToFirebase() {
+            try {
+                await set(ref(database, 'checklist-data'), localData);
+                showStatus('✓ Збережено', 'success');
+            } catch (error) {
+                showStatus('⚠ Помилка збереження', 'error');
+            }
+        }
+
+        function setupRealtimeSync() {
+            onValue(ref(database, 'checklist-data'), (snapshot) => {
+                if (!isLoading && snapshot.exists()) {
+                    localData = snapshot.val();
+                    renderUI();
+                    showStatus('🔄 Оновлено', 'info');
+                }
+            });
+        }
+
+        function showStatus(msg, type) {
+            const statusDiv = document.getElementById('status');
+            const colors = { success: 'bg-green-100 text-green-700', error: 'bg-red-100 text-red-700', warning: 'bg-yellow-100 text-yellow-700', info: 'bg-blue-100 text-blue-700' };
+            statusDiv.className = `px-4 py-2 rounded-lg font-medium ${colors[type]}`;
+            statusDiv.textContent = msg;
+            statusDiv.style.display = 'block';
+            setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
+        }
+
+        function calculateToPrepare(norm, remainder) {
+            return Math.max(0, (parseFloat(norm) || 0) - (parseFloat(remainder) || 0));
+        }
+
+        function handleChange(category, itemKey, dayIndex, field, value) {
+            if (!localData[category][itemKey]) return;
+            localData[category][itemKey][dayIndex][field] = value;
+            if (field === 'norm' || field === 'remainder') {
+                const d = localData[category][itemKey][dayIndex];
+                d.toPrepare = calculateToPrepare(d.norm, d.remainder);
+            }
+            renderUI();
+            saveToFirebase();
+        }
+
+        window.exportToExcel = function(allWeek = false) {
+            try {
+                if (typeof XLSX === 'undefined') {
+                    alert('Помилка: Бібліотека Excel не завантажена. Оновіть сторінку.');
+                    return;
+                }
+
+                const wb = XLSX.utils.book_new();
+                const dateStr = new Date().toLocaleDateString('uk-UA');
+                
+                if (allWeek) {
+                    days.forEach((day, dayIdx) => {
+                        const wsData = [
+                            ['Ресторан "Той Самий Баранчик Кременчук"'],
+                            ['Чек-лист заготовок холодного цеху'],
+                            [`День: ${day}`, `Дата: ${dateStr}`],
+                            [],
+                            ['Категорія', 'Найменування', 'Норма', 'Залишок', 'Доробити']
+                        ];
+                        
+                        Object.entries(categories).forEach(([catKey, catData]) => {
+                            catData.items.forEach(item => {
+                                const safeKey = item.replace(/[.#$\[\]]/g, '_');
+                                if (localData[catKey]?.[safeKey]) {
+                                    const d = localData[catKey][safeKey][dayIdx];
+                                    wsData.push([catData.name, item, d.norm || 0, d.remainder || 0, d.toPrepare || 0]);
+                                }
+                            });
+                        });
+                        
+                        const ws = XLSX.utils.aoa_to_sheet(wsData);
+                        ws['!cols'] = [{wch:25},{wch:40},{wch:10},{wch:10},{wch:10}];
+                        XLSX.utils.book_append_sheet(wb, ws, day);
+                    });
+                    XLSX.writeFile(wb, `Чек-лист_тиждень_${dateStr}.xlsx`);
+                } else {
+                    const wsData = [
+                        ['Ресторан "Той Самий Баранчик Кременчук"'],
+                        ['Чек-лист заготовок холодного цеху'],
+                        [`День: ${days[selectedDay]}`, `Дата: ${dateStr}`],
+                        [],
+                        ['Категорія', 'Найменування', 'Норма', 'Залишок', 'Доробити']
+                    ];
+                    
+                    Object.entries(categories).forEach(([catKey, catData]) => {
+                        catData.items.forEach(item => {
+                            const safeKey = item.replace(/[.#$\[\]]/g, '_');
+                            if (localData[catKey]?.[safeKey]) {
+                                const d = localData[catKey][safeKey][selectedDay];
+                                wsData.push([catData.name, item, d.norm || 0, d.remainder || 0, d.toPrepare || 0]);
+                            }
+                        });
+                    });
+                    
+                    const ws = XLSX.utils.aoa_to_sheet(wsData);
+                    ws['!cols'] = [{wch:25},{wch:40},{wch:10},{wch:10},{wch:10}];
+                    XLSX.utils.book_append_sheet(wb, ws, days[selectedDay]);
+                    XLSX.writeFile(wb, `Чек-лист_${days[selectedDay]}_${dateStr}.xlsx`);
+                }
+                showStatus('✓ Excel завантажено', 'success');
+            } catch (error) {
+                console.error('Помилка Excel:', error);
+                alert('Помилка створення Excel файлу: ' + error.message);
+            }
+        };
+
+        window.printDay = function(allWeek = false) {
+            const dateStr = new Date().toLocaleDateString('uk-UA');
+            let printContent = `
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Чек-лист ${allWeek ? 'тиждень' : days[selectedDay]}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        h1 { text-align: center; font-size: 18px; }
+                        h2 { text-align: center; font-size: 14px; color: #666; }
+                        h3 { font-size: 12px; margin-top: 20px; background: #f0f0f0; padding: 5px; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 10px; }
+                        th, td { border: 1px solid #ccc; padding: 4px; text-align: left; }
+                        th { background: #f8f8f8; font-weight: bold; }
+                        .page-break { page-break-before: always; }
+                        @media print {
+                            body { padding: 10px; }
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>`;
+            
+            if (allWeek) {
+                days.forEach((day, dayIdx) => {
+                    if (dayIdx > 0) printContent += '<div class="page-break"></div>';
+                    printContent += `
+                        <h1>Ресторан "Той Самий Баранчик Кременчук"</h1>
+                        <h2>Чек-лист заготовок холодного цеху</h2>
+                        <p style="text-align: center;"><strong>День:</strong> ${day} | <strong>Дата:</strong> ${dateStr}</p>
+                    `;
+                    
+                    Object.entries(categories).forEach(([catKey, catData]) => {
+                        printContent += `<h3>${catData.name}</h3><table><thead><tr>
+                            <th>Найменування</th><th width="60">Норма</th><th width="60">Залишок</th><th width="60">Доробити</th>
+                        </tr></thead><tbody>`;
+                        
+                        catData.items.forEach(item => {
+                            const safeKey = item.replace(/[.#$\[\]]/g, '_');
+                            if (localData[catKey]?.[safeKey]) {
+                                const d = localData[catKey][safeKey][dayIdx];
+                                printContent += `<tr>
+                                    <td>${item}</td>
+                                    <td style="text-align: center;">${d.norm || 0}</td>
+                                    <td style="text-align: center;">${d.remainder || 0}</td>
+                                    <td style="text-align: center; font-weight: bold;">${d.toPrepare || 0}</td>
+                                </tr>`;
+                            }
+                        });
+                        printContent += '</tbody></table>';
+                    });
+                });
+            } else {
+                printContent += `
+                    <h1>Ресторан "Той Самий Баранчик Кременчук"</h1>
+                    <h2>Чек-лист заготовок холодного цеху</h2>
+                    <p style="text-align: center;"><strong>День:</strong> ${days[selectedDay]} | <strong>Дата:</strong> ${dateStr}</p>
+                `;
+                
+                Object.entries(categories).forEach(([catKey, catData]) => {
+                    printContent += `<h3>${catData.name}</h3><table><thead><tr>
+                        <th>Найменування</th><th width="60">Норма</th><th width="60">Залишок</th><th width="60">Доробити</th>
+                    </tr></thead><tbody>`;
+                    
+                    catData.items.forEach(item => {
+                        const safeKey = item.replace(/[.#$\[\]]/g, '_');
+                        if (localData[catKey]?.[safeKey]) {
+                            const d = localData[catKey][safeKey][selectedDay];
+                            printContent += `<tr>
+                                <td>${item}</td>
+                                <td style="text-align: center;">${d.norm || 0}</td>
+                                <td style="text-align: center;">${d.remainder || 0}</td>
+                                <td style="text-align: center; font-weight: bold;">${d.toPrepare || 0}</td>
+                            </tr>`;
+                        }
+                    });
+                    printContent += '</tbody></table>';
+                });
+            }
+            
+            printContent += `
+                    <p style="margin-top: 30px; font-size: 11px;">
+                        Відповідальна особа: _________________ &nbsp;&nbsp;&nbsp; Підпис: _________________
+                    </p>
+                    <div class="no-print" style="text-align: center; margin-top: 20px;">
+                        <button onclick="window.print()" style="padding: 10px 20px; font-size: 14px; cursor: pointer;">🖨️ Друкувати</button>
+                        <button onclick="window.close()" style="padding: 10px 20px; font-size: 14px; cursor: pointer; margin-left: 10px;">❌ Закрити</button>
+                    </div>
+                </body></html>
+            `;
+            
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            printWindow.focus();
+            
+            showStatus('✓ Готово до друку', 'success');
+        };
+
+        function renderUI() {
+            let html = '';
+            Object.entries(categories).forEach(([catKey, catData]) => {
+                html += `<div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <h2 class="text-xl font-bold text-slate-800 mb-4 pb-2 border-b-2 border-orange-600">${catData.name}</h2>
+                    <div class="overflow-x-auto"><table class="w-full">
+                    <thead><tr class="bg-slate-50">
+                        <th class="text-left p-3 font-semibold text-slate-700 border-b-2 border-slate-200">Найменування</th>
+                        <th class="text-center p-3 font-semibold text-slate-700 border-b-2 border-slate-200 w-32">Норма</th>
+                        <th class="text-center p-3 font-semibold text-slate-700 border-b-2 border-slate-200 w-32">Залишок</th>
+                        <th class="text-center p-3 font-semibold text-orange-700 border-b-2 border-slate-200 w-32">Доробити</th>
+                    </tr></thead><tbody>`;
+                
+                catData.items.forEach(item => {
+                    const safeKey = item.replace(/[.#$\[\]]/g, '_');
+                    if (!localData[catKey]?.[safeKey]) return;
+                    const d = localData[catKey][safeKey][selectedDay];
+                    const bg = d.toPrepare > 0 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700';
+                    const normReadonly = adminMode ? '' : 'readonly';
+                    const normClass = adminMode ? 'w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-center' : 'w-full px-3 py-2 border border-slate-200 rounded-lg text-center bg-slate-50 text-slate-600 cursor-not-allowed';
+                    html += `<tr class="border-b border-slate-100 hover:bg-slate-50">
+                        <td class="p-3 text-slate-700">${item}</td>
+                        <td class="p-3"><input type="number" step="0.1" value="${d.norm}" ${normReadonly}
+                            onchange="handleChange('${catKey}','${safeKey}',${selectedDay},'norm',this.value)" 
+                            class="${normClass}" placeholder="0"/></td>
+                        <td class="p-3"><input type="number" step="0.1" value="${d.remainder}" 
+                            onchange="handleChange('${catKey}','${safeKey}',${selectedDay},'remainder',this.value)" 
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-center" placeholder="0"/></td>
+                        <td class="p-3"><div class="px-3 py-2 rounded-lg text-center font-semibold ${bg}">${d.toPrepare.toFixed(1)}</div></td>
+                    </tr>`;
+                });
+                html += `</tbody></table></div></div>`;
+            });
+            document.getElementById('checklist-container').innerHTML = html;
+        }
+
+        window.handleChange = handleChange;
+        
+        window.toggleAdminMode = () => {
+            if (!adminMode) {
+                const password = prompt('Введіть пароль адміністратора:');
+                if (password === ADMIN_PASSWORD) {
+                    adminMode = true;
+                    showStatus('🔓 Режим адміністратора активовано', 'success');
+                    renderUI();
+                } else if (password !== null) {
+                    showStatus('❌ Невірний пароль', 'error');
+                }
+            } else {
+                adminMode = false;
+                showStatus('🔒 Режим адміністратора деактивовано', 'info');
+                renderUI();
+            }
+            updateAdminButton();
+        };
+        
+        function updateAdminButton() {
+            const btn = document.getElementById('admin-btn');
+            if (btn) {
+                if (adminMode) {
+                    btn.className = 'px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium';
+                    btn.innerHTML = '🔓 Вимкнути режим адміна';
+                } else {
+                    btn.className = 'px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium';
+                    btn.innerHTML = '🔒 Налаштування норм';
+                }
+            }
+        }
+        
+        window.selectDay = (i) => {
+            selectedDay = i;
+            renderUI();
+            document.querySelectorAll('.day-btn').forEach((btn, j) => {
+                btn.className = j === i ? 'day-btn px-4 py-3 rounded-lg font-medium bg-orange-600 text-white shadow-md' : 'day-btn px-4 py-3 rounded-lg font-medium bg-slate-100 text-slate-700 hover:bg-slate-200';
+            });
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initData();
+            loadFromFirebase();
+            setupRealtimeSync();
+        });
+    </script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div class="max-w-7xl mx-auto">
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-4">
+                <div class="flex items-center gap-3">
+                    <span style="font-size:32px">👨‍🍳</span>
+                    <div>
+                        <h1 class="text-3xl font-bold text-slate-800">Чек-лист заготовок ХЦ</h1>
+                        <p class="text-slate-600">Ресторан "Той Самий Баранчик Кременчук"</p>
+                    </div>
+                </div>
+                <div id="status" style="display:none"></div>
+            </div>
+            
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4 flex items-start gap-3">
+                <span class="text-2xl">🔥</span>
+                <div class="text-sm text-green-800">
+                    <p class="font-semibold mb-1">🌐 Реал-тайм синхронізація активна!</p>
+                    <p>Всі зміни автоматично зберігаються в хмарі і синхронізуються між всіма пристроями.</p>
+                </div>
+            </div>
+
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                <h3 class="font-semibold text-purple-800 mb-3">📊 Експорт звітів:</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <button onclick="exportToExcel(false)" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
+                        📊 Excel (день)
+                    </button>
+                    <button onclick="exportToExcel(true)" class="px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 text-sm font-medium">
+                        📊 Excel (тиждень)
+                    </button>
+                    <button onclick="printDay(false)" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium">
+                        🖨️ Друк (день)
+                    </button>
+                    <button onclick="printDay(true)" class="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 text-sm font-medium">
+                        🖨️ Друк (тиждень)
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 class="font-semibold text-blue-800 mb-3">⚙️ Налаштування:</h3>
+                <button id="admin-btn" onclick="toggleAdminMode()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                    🔒 Налаштування норм
+                </button>
+                <p class="text-sm text-blue-700 mt-2">Для редагування норм потрібен пароль адміністратора</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-4 mb-6">
+            <div class="flex items-center gap-2 mb-4">
+                <span>📅</span>
+                <span class="font-semibold text-slate-700">Оберіть день тижня:</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+                <button onclick="selectDay(0)" class="day-btn px-4 py-3 rounded-lg font-medium bg-orange-600 text-white shadow-md">Понеділок</button>
+                <button onclick="selectDay(1)" class="day-btn px-4 py-3 rounded-lg font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">Вівторок</button>
+                <button onclick="selectDay(2)" class="day-btn px-4 py-3 rounded-lg font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">Середа</button>
+                <button onclick="selectDay(3)" class="day-btn px-4 py-3 rounded-lg font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">Четвер</button>
+                <button onclick="selectDay(4)" class="day-btn px-4 py-3 rounded-lg font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">Пятниця</button>
+                <button onclick="selectDay(5)" class="day-btn px-4 py-3 rounded-lg font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">Субота</button>
+                <button onclick="selectDay(6)" class="day-btn px-4 py-3 rounded-lg font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">Неділя</button>
+            </div>
+        </div>
+
+        <div id="checklist-container"></div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6 mt-6">
+            <div class="text-sm text-slate-600">
+                <p class="mb-2">Дата: <span id="date"></span></p>
+                <p class="mb-2">Відповідальна особа: _________________</p>
+                <p>Підпис: _________________</p>
+            </div>
+        </div>
+    </div>
+    <script>document.getElementById('date').textContent = new Date().toLocaleDateString('uk-UA');</script>
+</body>
+</html>
