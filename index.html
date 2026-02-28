@@ -11,9 +11,25 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; overflow-x: hidden; }
+        
         .day-active { background-color: #ea580c !important; color: white !important; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3); }
         
-        /* Мерехтіння */
+        /* Ефект збільшення поля при фокусі */
+        input[type="number"] {
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            will-change: transform;
+        }
+        
+        input[type="number"]:focus {
+            transform: scale(1.15); /* Збільшення на 15% */
+            z-index: 50;
+            position: relative;
+            border-color: #ea580c !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+            background-color: white !important;
+            outline: none;
+        }
+
         .critical-blink { 
             animation: blink-red 0.8s infinite alternate; 
             background-color: #dc2626 !important; 
@@ -23,14 +39,14 @@
             from { transform: scale(1); background-color: #dc2626; }
             to { transform: scale(1.05); background-color: #991b1b; }
         }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        #main-content { display: none; }
-        
-        /* Гарний заголовок розділу */
+
         .category-header {
             background: linear-gradient(90deg, #1e293b 0%, #334155 100%);
             letter-spacing: 0.05em;
         }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        #main-content { display: none; }
     </style>
 </head>
 <body class="pb-20">
@@ -63,7 +79,7 @@
                 <h1 class="font-black text-slate-900 uppercase text-base tracking-tighter leading-none">ХЦ БАРАНЧИК</h1>
                 <span class="text-[9px] font-bold text-orange-600 uppercase tracking-widest mt-1">Чек-лист заготівлі</span>
             </div>
-            <button id="admin-btn" onclick="toggleAdmin()" class="bg-slate-100 text-slate-800 border border-slate-200 px-4 py-2 rounded-2xl text-[10px] font-bold uppercase transition-all active:bg-slate-200">
+            <button id="admin-btn" onclick="toggleAdmin()" class="bg-slate-100 text-slate-800 border border-slate-200 px-4 py-2 rounded-2xl text-[10px] font-bold uppercase transition-all">
                 🔒 Адмін
             </button>
         </div>
@@ -79,8 +95,8 @@
         <div id="content" class="space-y-8"></div>
 
         <div class="mt-12 grid grid-cols-2 gap-4">
-            <button onclick="exportExcel()" class="bg-white border-2 border-slate-100 p-4 rounded-3xl text-[10px] font-bold uppercase text-slate-400 hover:text-slate-600 transition-all">📊 Звіт Excel</button>
-            <button onclick="window.print()" class="bg-white border-2 border-slate-100 p-4 rounded-3xl text-[10px] font-bold uppercase text-slate-400 hover:text-slate-600 transition-all">🖨️ Друк сторінки</button>
+            <button onclick="exportExcel()" class="bg-white border-2 border-slate-100 p-4 rounded-3xl text-[10px] font-bold uppercase text-slate-400">📊 Excel</button>
+            <button onclick="window.print()" class="bg-white border-2 border-slate-100 p-4 rounded-3xl text-[10px] font-bold uppercase text-slate-400">🖨️ Друк</button>
         </div>
     </main>
 
@@ -103,15 +119,11 @@
         let isAdmin = false;
 
         function checkAuth() {
-            const val = document.getElementById('pass-input').value.trim();
-            if (val === PASS_GENERAL) {
+            if (document.getElementById('pass-input').value.trim() === PASS_GENERAL) {
                 document.getElementById('auth-screen').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
                 initApp();
-            } else {
-                alert('Доступ заборонено!');
-                document.getElementById('pass-input').value = '';
-            }
+            } else { alert('Невірний PIN!'); document.getElementById('pass-input').value = ''; }
         }
 
         document.getElementById('pass-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') checkAuth(); });
@@ -119,17 +131,13 @@
         function initApp() {
             firebase.initializeApp(firebaseConfig);
             const db = firebase.database();
-            db.ref('checklist-data').on('value', snap => {
-                data = snap.val() || {};
-                render();
-            });
+            db.ref('checklist-data').on('value', snap => { data = snap.val() || {}; render(); });
             window.saveData = () => db.ref('checklist-data').set(data);
         }
 
         function toggleAdmin() {
-            if (!isAdmin) {
-                if (prompt('Введіть код адміністратора:') === PASS_ADMIN) isAdmin = true;
-            } else { isAdmin = false; }
+            if (!isAdmin && prompt('Введіть код адміністратора:') === PASS_ADMIN) isAdmin = true;
+            else if (isAdmin) isAdmin = false;
             render();
             document.getElementById('admin-btn').textContent = isAdmin ? '🔓 ГОТОВО' : '🔒 АДМІН';
         }
@@ -149,52 +157,46 @@
             let hasItems = false;
             for (let c in data) {
                 let section = `\n📂 *${c.toUpperCase()}*\n`;
-                let itemsFound = false;
+                let found = false;
                 for (let k in data[c]) {
                     if (k === "_init") continue;
                     const d = data[c][k][day];
                     if (d.toPrepare > 0) {
                         section += `• ${k.replace(/_/g, ' ')} ➜ *${d.toPrepare.toFixed(1)}*\n`;
-                        itemsFound = true; hasItems = true;
+                        found = true; hasItems = true;
                     }
                 }
-                if (itemsFound) message += section;
+                if (found) message += section;
             }
-            if (!hasItems) { alert("Немає позицій для доготування!"); return; }
+            if (!hasItems) { alert("Все готово!"); return; }
             try {
                 await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ chat_id: TG_CHAT_ID, text: message, parse_mode: 'Markdown' })
                 });
-                alert("✅ Звіт відправлено!");
-            } catch (e) { alert("Помилка відправки"); }
+                alert("✅ Відправлено!");
+            } catch (e) { alert("Помилка!"); }
         }
 
         function addCategory() {
-            const n = prompt('Назва нового розділу:');
+            const n = prompt('Назва розділу:');
             if(n) { data[n] = { "_init": true }; window.saveData(); }
         }
 
-        function deleteCategory(c) {
-            if(confirm(`Видалити весь розділ "${c}"?`)) { delete data[c]; window.saveData(); }
-        }
+        function deleteCategory(c) { if(confirm('Видалити розділ?')) { delete data[c]; window.saveData(); } }
 
         function addItem(cat) {
             const input = document.getElementById(`in-${cat.replace(/\s+/g, '_')}`);
-            const n = input.value.trim();
-            if(n) {
-                const k = n.replace(/\s+/g, '_');
-                if(!data[cat]) data[cat] = {};
+            if(input.value.trim()) {
+                const k = input.value.trim().replace(/\s+/g, '_');
                 data[cat][k] = Array(7).fill(0).map(() => ({norm:0, remainder:0, toPrepare:0}));
                 if(data[cat]._init) delete data[cat]._init;
                 window.saveData();
             }
         }
 
-        function deleteItem(cat, key) {
-            if(confirm('Видалити цей продукт?')) { delete data[cat][key]; window.saveData(); }
-        }
+        function deleteItem(cat, key) { if(confirm('Видалити?')) { delete data[cat][key]; window.saveData(); } }
 
         function render() {
             const shortDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -202,33 +204,37 @@
                 <button onclick="setDay(${i})" class="flex-1 min-w-[50px] py-4 rounded-2xl font-black text-[11px] uppercase transition-all ${i === day ? 'day-active' : 'bg-white text-slate-300 border border-slate-100'}">${d}</button>
             `).join('');
 
-            let h = isAdmin ? `<button onclick="addCategory()" class="w-full p-4 mb-8 bg-white text-orange-600 rounded-[2rem] font-black text-[11px] border-2 border-dashed border-orange-200 uppercase tracking-widest active:bg-orange-50 transition-all">➕ Додати Новий Розділ</button>` : '';
+            let h = isAdmin ? `<button onclick="addCategory()" class="w-full p-4 mb-8 bg-white text-orange-600 rounded-[2rem] font-black text-[11px] border-2 border-dashed border-orange-200 uppercase tracking-widest transition-all">➕ Додати Новий Розділ</button>` : '';
             
             for(let c in data) {
                 const catId = c.replace(/\s+/g, '_');
                 h += `<div class="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm mb-8">
                     <div class="category-header text-white px-8 py-5 flex justify-between items-center">
                         <span class="text-[13px] font-black uppercase tracking-wider">${c}</span>
-                        ${isAdmin ? `<button onclick="deleteCategory('${c}')" class="bg-red-500/30 text-red-200 px-3 py-1 rounded-xl text-[9px] font-bold border border-red-500/20">ВИДАЛИТИ 🗑️</button>` : ''}
+                        ${isAdmin ? `<button onclick="deleteCategory('${c}')" class="text-red-300 text-[9px] font-bold">🗑️ ВИДАЛИТИ</button>` : ''}
                     </div>
                     <table class="w-full text-xs">`;
                 
                 for(let k in data[c]) {
                     if (k === "_init") continue;
                     const d = data[c][k][day] || {norm:0, remainder:0, toPrepare:0};
-                    const isCritical = d.norm > 0 && d.toPrepare > (d.norm * 0.5);
+                    const isCrit = d.norm > 0 && d.toPrepare > (d.norm * 0.5);
                     
                     h += `<tr class="border-b border-slate-50 last:border-none">
                         <td class="p-5 font-semibold text-slate-800 w-[45%]">
                             <div class="flex items-center gap-3">
-                                ${isAdmin ? `<button onclick="deleteItem('${c}','${k}')" class="text-red-300 hover:text-red-500">✕</button>` : ''}
+                                ${isAdmin ? `<button onclick="deleteItem('${c}','${k}')" class="text-red-300">✕</button>` : ''}
                                 <span class="leading-snug">${k.replace(/_/g, ' ')}</span>
                             </div>
                         </td>
-                        <td class="p-1"><input type="number" value="${d.norm}" ${isAdmin?'':'readonly'} onchange="update('${c}','${k}','norm',this.value)" class="w-full p-3 text-center rounded-2xl ${isAdmin?'bg-orange-50 font-black text-orange-900 border border-orange-100':'text-slate-200 pointer-events-none'}"></td>
-                        <td class="p-1"><input type="number" value="${d.remainder}" onfocus="this.value=''" onchange="update('${c}','${k}','remainder',this.value)" class="w-full p-3 text-center rounded-2xl border-2 border-slate-50 font-black text-slate-900 focus:border-orange-500 outline-none transition-all"></td>
+                        <td class="p-1">
+                            <input type="number" value="${d.norm}" ${isAdmin?'':'readonly'} onfocus="this.select()" onchange="update('${c}','${k}','norm',this.value)" class="w-full p-3 text-center rounded-2xl ${isAdmin?'bg-orange-50 font-black text-orange-900 border border-orange-100':'text-slate-200 pointer-events-none'}">
+                        </td>
+                        <td class="p-1">
+                            <input type="number" value="${d.remainder}" onfocus="this.select()" onchange="update('${c}','${k}','remainder',this.value)" class="w-full p-3 text-center rounded-2xl border-2 border-slate-50 font-black text-slate-900 transition-all">
+                        </td>
                         <td class="p-5 text-right">
-                            <span class="px-4 py-2.5 rounded-2xl font-black text-[11px] min-w-[50px] inline-block text-center shadow-sm ${d.toPrepare > 0 ? (isCritical ? 'critical-blink' : 'bg-slate-800 text-white') : 'bg-green-100 text-green-700'}">
+                            <span class="px-4 py-2.5 rounded-2xl font-black text-[11px] min-w-[50px] inline-block text-center shadow-sm ${d.toPrepare > 0 ? (isCrit ? 'critical-blink' : 'bg-slate-800 text-white') : 'bg-green-100 text-green-700'}">
                                 ${Number(d.toPrepare).toFixed(1)}
                             </span>
                         </td>
@@ -236,10 +242,10 @@
                 }
 
                 if(isAdmin) {
-                    h += `<tr class="bg-slate-50/50"><td colspan="4" class="p-5 border-t border-slate-100">
+                    h += `<tr class="bg-slate-50/50"><td colspan="4" class="p-5 border-t">
                         <div class="flex gap-3">
-                            <input type="text" id="in-${catId}" placeholder="Назва позиції..." class="flex-1 p-4 text-[11px] rounded-2xl border-2 border-white outline-none focus:border-slate-300 transition-all">
-                            <button onclick="addItem('${c}')" class="bg-slate-800 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-tighter">Додати</button>
+                            <input type="text" id="in-${catId}" placeholder="Назва позиції..." class="flex-1 p-4 text-[11px] rounded-2xl border-2 border-white focus:border-slate-300 outline-none transition-all">
+                            <button onclick="addItem('${c}')" class="bg-slate-800 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase">Додати</button>
                         </div>
                     </td></tr>`;
                 }
