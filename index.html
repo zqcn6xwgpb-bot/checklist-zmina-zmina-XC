@@ -35,16 +35,25 @@
 </head>
 <body class="pb-20">
 
-    <div id="auth-screen" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-[999] px-6">
-        <div class="text-6xl mb-4">🐑</div>
+    <div id="auth-screen" class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-[999] px-4">
+        <div class="text-7xl mb-6">🐑</div>
         <h2 class="text-white font-black text-2xl uppercase mb-2 tracking-tight">ХЦ БАРАНЧИК</h2>
-        <p class="text-slate-400 text-[10px] uppercase tracking-[0.3em] mb-8">Система контролю залишків</p>
+        <p class="text-slate-500 text-[10px] uppercase tracking-[0.3em] mb-10">Система контролю залишків</p>
         
-        <div class="w-full max-w-[260px] space-y-4">
-            <input type="password" id="pass-input" inputmode="numeric" autocomplete="one-time-code" autofocus placeholder="ПИН-КОД" 
-                class="w-full bg-slate-800 text-white text-center text-3xl p-5 rounded-3xl outline-none border-2 border-slate-700 focus:border-orange-500 transition-all tracking-[0.5em]">
+        <div class="w-full max-w-[320px] space-y-5">
+            <input type="password" 
+                   id="pass-input" 
+                   inputmode="numeric" 
+                   pattern="[0-9]*"
+                   autocomplete="one-time-code" 
+                   autofocus 
+                   placeholder="PIN" 
+                   class="w-full bg-slate-800 text-white text-center text-4xl py-6 rounded-[2rem] outline-none border-2 border-slate-700 focus:border-orange-500 transition-all tracking-[0.4em] shadow-inner">
+            
             <button onclick="checkAuth()" 
-                class="w-full bg-orange-600 text-white py-5 rounded-3xl font-black uppercase text-sm active:scale-95 transition-all shadow-xl shadow-orange-900/20">Увійти в систему</button>
+                class="w-full bg-orange-600 text-white py-6 rounded-[2rem] font-black uppercase text-sm active:scale-95 transition-all shadow-2xl shadow-orange-900/40">
+                Увійти
+            </button>
         </div>
     </div>
 
