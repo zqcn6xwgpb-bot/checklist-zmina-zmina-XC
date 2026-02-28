@@ -3,96 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Чек-лист ХЦ - Баранчик</title>
+    <title>Чек-лист ХЦ</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
-        .day-active { background-color: #ea580c !important; color: white !important; box-shadow: 0 10px 15px -3px rgba(234, 88, 12, 0.3); }
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .save-success { border-color: #22c55e !important; background-color: #f0fdf4 !important; transition: all 0.3s; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .day-active { background-color: #ea580c !important; color: white !important; shadow: 0 4px 6px rgba(234, 88, 12, 0.2); }
+        .save-flash { animation: flash 1s ease; }
+        @keyframes flash { 
+            0% { background-color: white; } 
+            50% { background-color: #f0fdf4; border-color: #22c55e; } 
+            100% { background-color: white; } 
+        }
         .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="pb-10">
 
-    <div id="loading-screen" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-50">
+    <div id="loader" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-50">
         <div class="text-4xl animate-bounce">🐑</div>
-        <p class="text-slate-400 font-bold mt-4 uppercase tracking-widest text-[10px]">З'єднання з базою...</p>
+        <p id="loader-text" class="text-slate-400 font-bold mt-4 uppercase text-[10px] tracking-widest">Спроба з'єднання...</p>
     </div>
 
-    <header class="bg-white border-b sticky top-0 z-40 shadow-sm px-4 py-4">
+    <header class="bg-white border-b sticky top-0 z-40 px-4 py-4 shadow-sm">
         <div class="max-w-5xl mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="font-black text-slate-800 uppercase tracking-tighter leading-none">Холодний Цех</h1>
-                <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">Той Самий Баранчик</p>
-            </div>
-            <button id="admin-btn" onclick="window.toggleAdminMode()" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition-transform active:scale-95">
-                🔒 Норми
-            </button>
+            <h1 class="font-black text-slate-800 uppercase tracking-tighter">ХЦ БАРАНЧИК</h1>
+            <button id="admin-btn" onclick="toggleAdmin()" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase">🔒 Норми</button>
         </div>
     </header>
 
     <main class="max-w-5xl mx-auto px-4 mt-6">
-        <div id="day-selector" class="flex gap-1 overflow-x-auto pb-4 no-scrollbar"></div>
-
+        <div id="days-row" class="flex gap-1 overflow-x-auto pb-4 no-scrollbar"></div>
+        
         <div class="grid grid-cols-2 gap-2 mb-6">
-            <button onclick="window.exportToExcel(false)" class="bg-emerald-600 text-white p-3 rounded-xl text-[10px] font-bold uppercase flex items-center justify-center gap-2">📊 Звіт Excel</button>
-            <button onclick="window.print()" class="bg-blue-600 text-white p-3 rounded-xl text-[10px] font-bold uppercase flex items-center justify-center gap-2">🖨️ Друк</button>
+            <button onclick="exportExcel()" class="bg-emerald-600 text-white p-3 rounded-xl text-[10px] font-bold uppercase">📊 Ексель</button>
+            <button onclick="window.print()" class="bg-blue-600 text-white p-3 rounded-xl text-[10px] font-bold uppercase">🖨️ Друк</button>
         </div>
 
-        <div id="checklist-container" class="space-y-6"></div>
+        <div id="content" class="space-y-6"></div>
     </main>
 
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getDatabase, ref, set, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
-
+    <script>
+        // Конфігурація
         const firebaseConfig = {
             apiKey: "AIzaSyDo0IvJJbBSXCs7u2rpZ8fHrwK4Nm5isFo",
             authDomain: "baranchik-checklist.firebaseapp.com",
             databaseURL: "https://baranchik-checklist-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "baranchik-checklist",
-            storageBucket: "baranchik-checklist.firebasestorage.app",
-            messagingSenderId: "374378353806",
             appId: "1:374378353806:web:95ff4b94c14fad8bece5df"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+        // Ініціалізація
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
         
-        const daysShort = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
-        const categories = {
-            'ОВОЧІ_ТА_ЗЕЛЕНЬ': ['Огірок свіжий без шкірки', 'Помідор рожевий', 'Перець солодкий', 'Цибуля марс', 'Цибуля зелена', 'Кінза', 'Шпинат', 'Кріп', 'Петрушка', 'Рукола', 'Мята', 'Картопля відварна', 'Морква бебі', 'Капуста гурійська', 'Баклажан', 'Часник'],
-            'МЯСО_ТА_ПТИЦЯ': ['Яловичина відварна', 'Курка шашлик', 'Печінка куряча', 'Качка маринована', 'Телятина'],
-            'РИБА_ТА_МОРЕ': ['Лосось солоний', 'Оселедець'],
-            'МОЛОЧНІ_ТА_СИРИ': ['Імеретинський', 'Сулугуні', 'Сулугуні копчений', 'Бринза', 'Пармезан', 'Рікотта', 'Сметана', 'Масло'],
-            'СОУСИ': ['Цезар', 'Ткемалі', 'Соєво-медовий', 'Горіхова заправка', 'На окрошку', 'Крем гарбузовий']
+        const cats = {
+            'ОВОЧІ': ['Огірок чищений', 'Помідор рожевий', 'Перець солодкий', 'Цибуля марс', 'Цибуля зелена', 'Кінза', 'Шпинат', 'Картопля відварна', 'Морква бебі'],
+            'МЯСО': ['Яловичина відварна', 'Курка шашлик', 'Печінка куряча', 'Качка маринована', 'Телятина'],
+            'СИРИ': ['Сулугуні', 'Імеретинський', 'Бринза', 'Пармезан', 'Рікотта'],
+            'СОУСИ': ['Цезар', 'Ткемалі', 'Соєво-медовий', 'Горіхова заправка', 'Крем гарбузовий']
         };
 
-        let localData = {};
-        let selectedDay = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
-        let adminMode = false;
+        let data = {};
+        let day = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+        let isAdmin = false;
 
-        // Глобальні функції для доступу через HTML
-        window.selectDay = (idx) => {
-            selectedDay = idx;
-            renderAll();
-        };
+        // Функції UI
+        function toggleAdmin() {
+            if (!isAdmin && prompt('Пароль:') === '1234') isAdmin = true;
+            else isAdmin = false;
+            document.getElementById('admin-btn').textContent = isAdmin ? '🔓 Готово' : '🔒 Норми';
+            render();
+        }
 
-        window.toggleAdminMode = () => {
-            if (!adminMode) {
-                if (prompt('Пароль адміністратора:') === '1234') adminMode = true;
-            } else {
-                adminMode = false;
-            }
-            document.getElementById('admin-btn').textContent = adminMode ? '🔓 Готово' : '🔒 Норми';
-            renderAll();
-        };
+        function setDay(i) { day = i; render(); }
 
-        window.updateVal = (cat, key, field, val, inputEl) => {
-            const num = parseFloat(val) || 0;
+        function update(c, k, f, v, el) {
+            const val = parseFloat(v) || 0;
+            if(!data[c]) data[c] = {};
+            if(!data[c][k]) data[c][k] = Array(7).fill(0).map(() => ({norm:0, remainder:0, toPrepare:0}));
             
-            if (!localData[cat][key]) {
-                localData[cat][key] = Array(7).fill(0).map(()
+            data[c][k][day][f] = val;
+            const d = data[c][k][day];
+            d.toPrepare = Math.max(0, d.norm - d.remainder);
+            
+            db.ref('checklist-data').set(data).then(() => {
+                el.parentElement.classList.add('save-flash');
+                setTimeout(() => el.parentElement.classList.remove('save-flash'), 1000);
+                render();
+            });
+        }
+
+        function render() {
+            const shortDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+            document.getElementById('days-row').innerHTML = shortDays.map((d, i) => `
+                <button onclick="setDay(${i})" class="flex-1 min-w-[45px] py-3 rounded-xl font-bold text-xs ${i === day ? 'day-active' : 'bg-white border'}">${d}</button>
+            `).join('');
+
+            let h = '';
+            for(let c in cats) {
+                h += `<div class="bg-white rounded-2xl border overflow-hidden shadow-sm">
+                    <div class="bg-slate-800 text-white px-4 py-2 text-[10px] font-black uppercase">${c}</div>
+                    <table class="w-full text-xs">`;
+                cats[c].forEach(item => {
+                    const k = item.replace(/\s+/g, '_');
+                    const d = data[c]?.[k]?.[day] || {norm:0, remainder:0, toPrepare:0};
+                    h += `<tr class="border-b last:border-none ${d.toPrepare > 0 ? 'bg-orange-50/30' : ''}">
+                        <td class="p-3 font-bold text-slate-700">${item}</td>
+                        <td class="p-1"><input type="number" value="${d.norm}" ${isAdmin?'':'readonly'} onfocus="if(this.value==='0')this.value=''" onblur="if(this.value==='')this.value='0'" onchange="update('${c}','${k}','norm',this.value, this)" class="w-full p-2 text-center rounded ${isAdmin?'bg-orange-50 border border-orange-200':'text-slate-300'}"></td>
+                        <td class="p-1"><input type="number" value="${d.remainder}" onfocus="if(this.value==='0')this.value=''" onblur="if(this.value==='')this.value='0'" onchange="update('${c}','${k}','remainder',this.value, this)" class="w-full p-2 text-center rounded border font-bold"></td>
+                        <td class="p-3 text-center"><span class="px-2 py-1 rounded font-black ${d.toPrepare>0?'bg-orange-600 text-white':'bg-green-100 text-green-700'}">${d.toPrepare.toFixed(1)}</span></td>
+                    </tr>`;
+                });
+                h += `</table></div>`;
+            }
+            document.getElementById('content').innerHTML = h;
+        }
+
+        function exportExcel() {
+            const wb = XLSX.utils.book_new();
+            let rows = [['Категорія', 'Продукт', 'Норма', 'Залишок', 'Доробити']];
+            for(let c in cats) cats[c].forEach(i => {
+                const k = i.replace(/\s+/g, '_');
+                const d = data[c][k][day];
+                rows.push([c, i, d.norm, d.remainder, d.toPrepare]);
+            });
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Звіт");
+            XLSX.writeFile(wb, "Звіт_ХЦ.xlsx");
+        }
+
+        // Слухач бази
+        db.ref('checklist-data').on('value', (snap) => {
+            if(snap.exists()) {
+                data = snap.val();
+                document.getElementById('loader').style.display = 'none';
+                render();
+            } else {
+                // Створення початкових даних
+                for(let c in cats) {
+                    data[c] = {};
+                    cats[c].forEach(i => {
+                        data[c][i.replace(/\s+/g, '_')] = Array(7).fill(0).map(() => ({norm:0, remainder:0, toPrepare:0}));
+                    });
+                }
+                db.ref('checklist-data').set(data);
+            }
+        }, (err) => {
+            document.getElementById('loader-text').innerHTML = "Помилка доступу!<br>Перевірте Rules у Firebase.";
+            document.getElementById('loader-text').className = "text-red-500 font-bold mt-4 text-center px-4";
+        });
+    </script>
+</body>
+</html>
