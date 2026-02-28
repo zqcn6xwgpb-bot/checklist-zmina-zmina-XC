@@ -4,66 +4,166 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Чек-лист ХЦ - Баранчик</title>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
-        .day-active { background-color: #ea580c !important; color: white !important; shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
-        input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .day-active { background-color: #ea580c !important; color: white !important; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
-<body class="min-h-screen pb-10">
+<body class="pb-10">
 
-    <div id="app-loading" class="fixed inset-0 bg-white flex items-center justify-center z-50">
-        <div class="text-center">
-            <div class="animate-spin text-4xl mb-2">🐑</div>
-            <p class="text-slate-500 font-medium">Завантаження бази даних...</p>
-        </div>
+    <div id="loading-screen" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-50">
+        <div class="text-4xl animate-bounce">🐏</div>
+        <p class="text-slate-400 font-bold mt-4 uppercase tracking-widest text-xs">Завантаження...</p>
     </div>
 
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-        <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <span class="text-3xl">👨‍🍳</span>
-                <div>
-                    <h1 class="text-lg font-black text-slate-800 uppercase leading-none">Холодний Цех</h1>
-                    <p class="text-xs text-slate-500 font-bold mt-1 uppercase tracking-wider">Баранчик Кременчук</p>
-                </div>
-            </div>
-            <button id="admin-btn" onclick="toggleAdminMode()" class="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold uppercase transition-all active:scale-95">
-                🔒 Норми
-            </button>
+    <header class="bg-white border-b sticky top-0 z-40 shadow-sm px-4 py-4">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <h1 class="font-black text-slate-800 uppercase tracking-tighter">Холодний Цех <span class="text-orange-600">●</span></h1>
+            <button id="admin-btn" onclick="window.toggleAdminMode()" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase">🔒 Адмін</button>
         </div>
     </header>
 
     <main class="max-w-5xl mx-auto px-4 mt-6">
-        <div class="bg-white p-2 rounded-2xl shadow-sm mb-6 flex overflow-x-auto gap-1 no-scrollbar">
-            <button onclick="selectDay(0)" class="day-btn flex-1 min-w-[60px] py-3 rounded-xl font-bold text-sm uppercase transition-all bg-slate-50 text-slate-500">Пн</button>
-            <button onclick="selectDay(1)" class="day-btn flex-1 min-w-[60px] py-3 rounded-xl font-bold text-sm uppercase transition-all bg-slate-50 text-slate-500">Вт</button>
-            <button onclick="selectDay(2)" class="day-btn flex-1 min-w-[60px] py-3 rounded-xl font-bold text-sm uppercase transition-all bg-slate-50 text-slate-500">Ср</button>
-            <button onclick="selectDay(3)" class="day-btn flex-1 min-w-[60px] py-3 rounded-xl font-bold text-sm uppercase transition-all bg-slate-50 text-slate-500">Чт</button>
-            <button onclick="selectDay(4)" class="day-btn flex-1 min-w-[60px] py-3 rounded-xl font-bold text-sm uppercase transition-all bg-slate-50 text-slate-500">Пт</button>
-            <button onclick="selectDay(5)" class="day-btn flex-1 min-w-[60px] py-3 rounded-xl font-bold text-sm uppercase transition-all bg-slate-50 text-slate-500">Сб</button>
-            <button onclick="selectDay(6)" class="day-btn flex-1 min-w-[60px] py-3 rounded-xl font-bold text-sm uppercase transition-all bg-slate-50 text-slate-500">Нд</button>
+        <div id="day-selector" class="flex gap-1 overflow-x-auto pb-4 no-scrollbar">
+            </div>
+
+        <div class="grid grid-cols-2 gap-2 mb-6">
+            <button onclick="window.exportToExcel(false)" class="bg-emerald-600 text-white p-3 rounded-xl text-[10px] font-bold uppercase">📊 Excel</button>
+            <button onclick="window.print()" class="bg-blue-600 text-white p-3 rounded-xl text-[10px] font-bold uppercase">🖨️ Друк</button>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-8">
-            <button onclick="exportToExcel(false)" class="bg-green-600 text-white p-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2">📊 Excel День</button>
-            <button onclick="exportToExcel(true)" class="bg-green-800 text-white p-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2">📅 Excel Тиждень</button>
-            <button onclick="window.print()" class="bg-blue-600 text-white p-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2">🖨️ Друк</button>
-            <div class="bg-orange-100 text-orange-700 p-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center text-center">☁️ Синхронізація</div>
-        </div>
-
-        <div id="checklist-container"></div>
+        <div id="checklist-container" class="space-y-6"></div>
     </main>
-
-    <div id="status-toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-slate-900 text-white text-sm font-bold shadow-2xl z-50 transition-all opacity-0 pointer-events-none"></div>
 
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getDatabase, ref, set, get, onValue } from '
+        import { getDatabase, ref, set, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo0IvJJbBSXCs7u2rpZ8fHrwK4Nm5isFo",
+            authDomain: "baranchik-checklist.firebaseapp.com",
+            databaseURL: "https://baranchik-checklist-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "baranchik-checklist",
+            storageBucket: "baranchik-checklist.firebasestorage.app",
+            messagingSenderId: "374378353806",
+            appId: "1:374378353806:web:95ff4b94c14fad8bece5df"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+        const fullDays = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'Пятниця', 'Субота', 'Неділя'];
+
+        const categories = {
+            'ОВОЧІ_ТА_ЗЕЛЕНЬ': ['Огірок свіжий без шкірки чищений','Помідор рожевий чищений чері','Перець солодкий зачищений','Перець чілі зачищений','Цибуля марс зачищена','Цибуля зелена зачищена','Цибуля ріпчаста маринована','Кінза зачищена','Шпинат зачищений','Кріп зачищений','Петрушка зачищена','Рукола зачищена','Мята зачищена','Тархун зачищений','Картопля відварена чищена','Морква відварена чищена бебі печена','Капуста по-гурійськи','Баклажан','Селера стебло зачищений','Часник чищений'],
+            'МЯСО_ТА_ПТИЦЯ': ['Яловичина мякоть відварена','Курка стегно шашлик смажене','Курка печінка куряча зачищена','Качка філе мариноване','Телятина'],
+            'РИБА_ТА_МОРЕПРОДУКТИ': ['Лосось солоний','Оселедець'],
+            'МОЛОЧНІ_ПРОДУКТИ_ТА_СИРИ': ['Сир імеретинський','Сир сулугуні звичайний','Сир сулугуні копчений','Сир сулугуні мотанка','Сир сулугуні пряний','Сир бринза','Сир пармезан зачищений','Сир з пліснявою зачищений','Сир гауда','Сир Добродар зачищений','Сир рікотта','Сметана 20%','Масло вершкове'],
+            'СОУСИ_ТА_ЗАПРАВКИ': ['Соус Цезар','Соус Ткемалі','Соус соєво-медовий','Соус яблуко','Заправка горіхова салатна','Заправка на салат з печінкою','Заправка на окрошку','Крем гарбузовий']
+        };
+
+        let localData = {};
+        let selectedDay = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+        let adminMode = false;
+
+        // Ініціалізація структури, якщо база порожня
+        function generateInitialData() {
+            let res = {};
+            Object.keys(categories).forEach(cat => {
+                res[cat] = {};
+                categories[cat].forEach(item => {
+                    const key = item.replace(/[.#$\[\]]/g, '_');
+                    res[cat][key] = Array(7).fill(0).map(() => ({ norm: 0, remainder: 0, toPrepare: 0 }));
+                });
+            });
+            return res;
+        }
+
+        window.selectDay = (idx) => {
+            selectedDay = idx;
+            renderButtons();
+            renderTable();
+        };
+
+        window.toggleAdminMode = () => {
+            if (!adminMode) {
+                if (prompt('Пароль:') === '1234') adminMode = true;
+            } else {
+                adminMode = false;
+            }
+            document.getElementById('admin-btn').textContent = adminMode ? '🔓 Готово' : '🔒 Адмін';
+            renderTable();
+        };
+
+        window.updateVal = (cat, key, field, val) => {
+            const num = parseFloat(val) || 0;
+            localData[cat][key][selectedDay][field] = num;
+            const d = localData[cat][key][selectedDay];
+            d.toPrepare = Math.max(0, d.norm - d.remainder);
+            
+            set(ref(db, 'checklist-data'), localData);
+            renderTable();
+        };
+
+        function renderButtons() {
+            const container = document.getElementById('day-selector');
+            container.innerHTML = days.map((d, i) => `
+                <button onclick="window.selectDay(${i})" class="flex-1 min-w-[50px] py-3 rounded-xl font-bold text-xs uppercase transition-all ${i === selectedDay ? 'day-active shadow-lg shadow-orange-200' : 'bg-white text-slate-400 border border-slate-100'}">
+                    ${d}
+                </button>
+            `).join('');
+        }
+
+        function renderTable() {
+            const container = document.getElementById('checklist-container');
+            let html = '';
+
+            Object.entries(categories).forEach(([catKey, items]) => {
+                html += `
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div class="bg-slate-800 px-4 py-2 text-[10px] font-black text-white uppercase tracking-widest">${catKey.replace(/_/g, ' ')}</div>
+                    <table class="w-full text-left border-collapse">
+                        ${items.map(item => {
+                            const key = item.replace(/[.#$\[\]]/g, '_');
+                            const d = localData[catKey]?.[key]?.[selectedDay] || {norm:0, remainder:0, toPrepare:0};
+                            const needsWork = d.toPrepare > 0;
+                            return `
+                            <tr class="border-b border-slate-50 last:border-none ${needsWork ? 'bg-orange-50/30' : ''}">
+                                <td class="p-3 text-xs font-bold text-slate-700 w-1/2">${item}</td>
+                                <td class="p-1">
+                                    <input type="number" step="0.1" value="${d.norm}" ${adminMode ? '' : 'readonly'} 
+                                        onchange="window.updateVal('${catKey}','${key}','norm',this.value)"
+                                        class="w-full p-2 text-center text-xs rounded-lg ${adminMode ? 'bg-orange-50 border border-orange-200' : 'bg-transparent text-slate-300 pointer-events-none'}">
+                                </td>
+                                <td class="p-1">
+                                    <input type="number" step="0.1" value="${d.remainder}" 
+                                        onchange="window.updateVal('${catKey}','${key}','remainder',this.value)"
+                                        class="w-full p-2 text-center text-xs rounded-lg bg-white border border-slate-200 font-bold focus:ring-2 focus:ring-orange-500 outline-none">
+                                </td>
+                                <td class="p-3 text-center">
+                                    <div class="py-1 px-2 rounded-lg text-[10px] font-black ${needsWork ? 'bg-orange-600 text-white' : 'bg-green-100 text-green-700'}">
+                                        ${d.toPrepare.toFixed(1)}
+                                    </div>
+                                </td>
+                            </tr>`;
+                        }).join('')}
+                    </table>
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        window.exportToExcel = (allWeek) => {
+            const wb = XLSX.utils.book_new();
+            const date = new Date().toLocaleDateString('uk-UA');
+            const getSheet = (idx) => {
+                let rows = [['Категорія', 'Продукт', 'Норма', 'Залишок', 'Доробити']];
+                Object.entries(categories).forEach(([ck, its]) => {
+                    its.forEach(it => {
+                        const key = it.replace(/[.#$\[\]]/g, '_');
+                        const d = localData[ck][key][idx];
+                        rows.push([ck, it,
