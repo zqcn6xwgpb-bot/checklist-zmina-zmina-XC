@@ -14,20 +14,27 @@
         
         .day-active { background-color: #ea580c !important; color: white !important; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3); }
         
-        /* Ефект збільшення поля при фокусі */
+        /* НОВИЙ ЕФЕКТ РОЗШИРЕННЯ ПРИ НАТИСКАННІ */
         input[type="number"] {
-            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-            will-change: transform;
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+            backface-visibility: hidden;
+            touch-action: manipulation;
         }
         
         input[type="number"]:focus {
-            transform: scale(1.15); /* Збільшення на 15% */
-            z-index: 50;
+            transform: scale(1.3) translateY(-2px) !important; /* Сильне збільшення та підйом */
+            z-index: 100 !important;
             position: relative;
             border-color: #ea580c !important;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.2) !important;
             background-color: white !important;
-            outline: none;
+            outline: none !important; /* ПРИБИРАЄМО СТАНДАРТНУ РАМКУ З ВІДЕО */
+        }
+
+        /* Щоб сусідні елементи не перекривали той, що в фокусі */
+        td:has(input:focus) {
+            z-index: 50;
+            position: relative;
         }
 
         .critical-blink { 
