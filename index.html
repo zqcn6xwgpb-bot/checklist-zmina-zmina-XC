@@ -3,167 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Чек-лист ХЦ - Баранчик</title>
+    <title>Чек-лист ХЦ</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .day-active { background-color: #ea580c !important; color: white !important; }
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    </style>
 </head>
-<body class="pb-10">
+<body class="bg-slate-50 min-h-screen">
 
-    <div id="loading-screen" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-50">
-        <div class="text-4xl animate-bounce">🐏</div>
-        <p class="text-slate-400 font-bold mt-4 uppercase tracking-widest text-xs">Завантаження...</p>
+    <div id="status-overlay" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-50">
+        <div id="loader" class="text-4xl animate-bounce">🐑</div>
+        <p id="status-text" class="text-slate-400 font-bold mt-4 uppercase text-xs tracking-widest">З'єднання з базою...</p>
+        <div id="error-log" class="mt-4 p-4 bg-red-50 text-red-600 text-xs rounded-lg hidden max-w-xs overflow-auto"></div>
     </div>
 
-    <header class="bg-white border-b sticky top-0 z-40 shadow-sm px-4 py-4">
+    <header class="bg-white border-b p-4 sticky top-0 z-40">
         <div class="max-w-5xl mx-auto flex justify-between items-center">
-            <h1 class="font-black text-slate-800 uppercase tracking-tighter">Холодний Цех <span class="text-orange-600">●</span></h1>
-            <button id="admin-btn" onclick="window.toggleAdminMode()" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase">🔒 Адмін</button>
+            <h1 class="font-black text-slate-800 uppercase tracking-tighter">Холодний Цех</h1>
+            <button onclick="window.toggleAdminMode()" class="bg-slate-800 text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase">🔒 Адмін</button>
         </div>
     </header>
 
-    <main class="max-w-5xl mx-auto px-4 mt-6">
-        <div id="day-selector" class="flex gap-1 overflow-x-auto pb-4 no-scrollbar">
-            </div>
-
-        <div class="grid grid-cols-2 gap-2 mb-6">
-            <button onclick="window.exportToExcel(false)" class="bg-emerald-600 text-white p-3 rounded-xl text-[10px] font-bold uppercase">📊 Excel</button>
-            <button onclick="window.print()" class="bg-blue-600 text-white p-3 rounded-xl text-[10px] font-bold uppercase">🖨️ Друк</button>
-        </div>
-
-        <div id="checklist-container" class="space-y-6"></div>
+    <main id="main-content" class="max-w-5xl mx-auto px-4 mt-6 opacity-0 transition-opacity duration-500">
+        <div id="day-selector" class="flex gap-1 overflow-x-auto pb-4 mb-4"></div>
+        <div id="checklist-container" class="space-y-6 pb-20"></div>
     </main>
 
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getDatabase, ref, set, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDo0IvJJbBSXCs7u2rpZ8fHrwK4Nm5isFo",
-            authDomain: "baranchik-checklist.firebaseapp.com",
-            databaseURL: "https://baranchik-checklist-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "baranchik-checklist",
-            storageBucket: "baranchik-checklist.firebasestorage.app",
-            messagingSenderId: "374378353806",
-            appId: "1:374378353806:web:95ff4b94c14fad8bece5df"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
-        const fullDays = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'Пятниця', 'Субота', 'Неділя'];
-
-        const categories = {
-            'ОВОЧІ_ТА_ЗЕЛЕНЬ': ['Огірок свіжий без шкірки чищений','Помідор рожевий чищений чері','Перець солодкий зачищений','Перець чілі зачищений','Цибуля марс зачищена','Цибуля зелена зачищена','Цибуля ріпчаста маринована','Кінза зачищена','Шпинат зачищений','Кріп зачищений','Петрушка зачищена','Рукола зачищена','Мята зачищена','Тархун зачищений','Картопля відварена чищена','Морква відварена чищена бебі печена','Капуста по-гурійськи','Баклажан','Селера стебло зачищений','Часник чищений'],
-            'МЯСО_ТА_ПТИЦЯ': ['Яловичина мякоть відварена','Курка стегно шашлик смажене','Курка печінка куряча зачищена','Качка філе мариноване','Телятина'],
-            'РИБА_ТА_МОРЕПРОДУКТИ': ['Лосось солоний','Оселедець'],
-            'МОЛОЧНІ_ПРОДУКТИ_ТА_СИРИ': ['Сир імеретинський','Сир сулугуні звичайний','Сир сулугуні копчений','Сир сулугуні мотанка','Сир сулугуні пряний','Сир бринза','Сир пармезан зачищений','Сир з пліснявою зачищений','Сир гауда','Сир Добродар зачищений','Сир рікотта','Сметана 20%','Масло вершкове'],
-            'СОУСИ_ТА_ЗАПРАВКИ': ['Соус Цезар','Соус Ткемалі','Соус соєво-медовий','Соус яблуко','Заправка горіхова салатна','Заправка на салат з печінкою','Заправка на окрошку','Крем гарбузовий']
-        };
-
-        let localData = {};
-        let selectedDay = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
-        let adminMode = false;
-
-        // Ініціалізація структури, якщо база порожня
-        function generateInitialData() {
-            let res = {};
-            Object.keys(categories).forEach(cat => {
-                res[cat] = {};
-                categories[cat].forEach(item => {
-                    const key = item.replace(/[.#$\[\]]/g, '_');
-                    res[cat][key] = Array(7).fill(0).map(() => ({ norm: 0, remainder: 0, toPrepare: 0 }));
-                });
-            });
-            return res;
+        // Логування помилок на екран
+        function logError(err) {
+            const logDiv = document.getElementById('error-log');
+            logDiv.classList.remove('hidden');
+            logDiv.innerHTML += `<p>> ${err}</p>`;
+            document.getElementById('status-text').textContent = "Помилка завантаження";
+            document.getElementById('loader').innerHTML = "❌";
         }
 
-        window.selectDay = (idx) => {
-            selectedDay = idx;
-            renderButtons();
-            renderTable();
-        };
+        try {
+            const firebaseConfig = {
+                apiKey: "AIzaSyDo0IvJJbBSXCs7u2rpZ8fHrwK4Nm5isFo",
+                authDomain: "baranchik-checklist.firebaseapp.com",
+                databaseURL: "https://baranchik-checklist-default-rtdb.europe-west1.firebasedatabase.app",
+                projectId: "baranchik-checklist",
+                storageBucket: "baranchik-checklist.firebasestorage.app",
+                messagingSenderId: "374378353806",
+                appId: "1:374378353806:web:95ff4b94c14fad8bece5df"
+            };
 
-        window.toggleAdminMode = () => {
-            if (!adminMode) {
-                if (prompt('Пароль:') === '1234') adminMode = true;
-            } else {
-                adminMode = false;
+            const app = initializeApp(firebaseConfig);
+            const db = getDatabase(app);
+            const categories = {
+                'ОВОЧІ': ['Огірок чищений', 'Помідор рожевий', 'Перець солодкий', 'Цибуля марс', 'Кінза зачищена', 'Шпинат', 'Картопля відварна', 'Морква печена'],
+                'МЯСО': ['Яловичина відварна', 'Курка шашлик', 'Печінка куряча', 'Качка філе', 'Телятина'],
+                'СИРИ': ['Сулугуні', 'Імеретинський', 'Бринза', 'Пармезан', 'Рікотта']
+            };
+
+            let localData = {};
+            let selectedDay = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+            let adminMode = false;
+
+            window.toggleAdminMode = () => {
+                if (!adminMode && prompt('Пароль:') === '1234') adminMode = true;
+                else adminMode = false;
+                render();
+            };
+
+            window.updateVal = (cat, item, field, val) => {
+                const num = parseFloat(val) || 0;
+                localData[cat][item][selectedDay][field] = num;
+                localData[cat][item][selectedDay].toPrepare = Math.max(0, localData[cat][item][selectedDay].norm - localData[cat][item][selectedDay].remainder);
+                set(ref(db, 'checklist-data'), localData);
+                render();
+            };
+
+            window.setDay = (i) => { selectedDay = i; render(); };
+
+            function render() {
+                const daysShort = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+                document.getElementById('day-selector').innerHTML = daysShort.map((d, i) => `
+                    <button onclick="setDay(${i})" class="flex-1 min-w-[45px] py-3 rounded-xl font-bold text-xs uppercase ${i === selectedDay ? 'bg-orange-600 text-white shadow-lg' : 'bg-white text-slate-400 border'}">${d}</button>
+                `).join('');
+
+                let html = '';
+                for (let cat in categories) {
+                    html += `<div class="bg-white rounded-2xl border overflow-hidden shadow-sm mb-6">
+                        <div class="bg-slate-800 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest">${cat}</div>
+                        <table class="w-full text-xs">`;
+                    categories[cat].forEach(item => {
+                        const key = item.replace(/\s+/g, '_');
+                        const d = localData[cat]?.[key]?.[selectedDay] || {norm:0, remainder:0, toPrepare:0};
+                        html += `<tr class="border-b last:border-none">
+                            <td class="p-3 font-bold text-slate-700">${item}</td>
+                            <td class="p-1"><input type="number" value="${d.norm}" ${adminMode?'':'readonly'} onchange="updateVal('${cat}','${key}','norm',this.value)" class="w-full p-2 text-center rounded bg-${adminMode?'orange-50':'transparent text-slate-300'}"></td>
+                            <td class="p-1"><input type="number" value="${d.remainder}" onchange="updateVal('${cat}','${key}','remainder',this.value)" class="w-full p-2 text-center rounded border font-bold"></td>
+                            <td class="p-3 text-center"><span class="px-2 py-1 rounded font-black ${d.toPrepare>0?'bg-orange-600 text-white':'bg-green-100 text-green-700'}">${d.toPrepare.toFixed(1)}</span></td>
+                        </tr>`;
+                    });
+                    html += `</table></div>`;
+                }
+                document.getElementById('checklist-container').innerHTML = html;
             }
-            document.getElementById('admin-btn').textContent = adminMode ? '🔓 Готово' : '🔒 Адмін';
-            renderTable();
-        };
 
-        window.updateVal = (cat, key, field, val) => {
-            const num = parseFloat(val) || 0;
-            localData[cat][key][selectedDay][field] = num;
-            const d = localData[cat][key][selectedDay];
-            d.toPrepare = Math.max(0, d.norm - d.remainder);
-            
-            set(ref(db, 'checklist-data'), localData);
-            renderTable();
-        };
-
-        function renderButtons() {
-            const container = document.getElementById('day-selector');
-            container.innerHTML = days.map((d, i) => `
-                <button onclick="window.selectDay(${i})" class="flex-1 min-w-[50px] py-3 rounded-xl font-bold text-xs uppercase transition-all ${i === selectedDay ? 'day-active shadow-lg shadow-orange-200' : 'bg-white text-slate-400 border border-slate-100'}">
-                    ${d}
-                </button>
-            `).join('');
-        }
-
-        function renderTable() {
-            const container = document.getElementById('checklist-container');
-            let html = '';
-
-            Object.entries(categories).forEach(([catKey, items]) => {
-                html += `
-                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                    <div class="bg-slate-800 px-4 py-2 text-[10px] font-black text-white uppercase tracking-widest">${catKey.replace(/_/g, ' ')}</div>
-                    <table class="w-full text-left border-collapse">
-                        ${items.map(item => {
-                            const key = item.replace(/[.#$\[\]]/g, '_');
-                            const d = localData[catKey]?.[key]?.[selectedDay] || {norm:0, remainder:0, toPrepare:0};
-                            const needsWork = d.toPrepare > 0;
-                            return `
-                            <tr class="border-b border-slate-50 last:border-none ${needsWork ? 'bg-orange-50/30' : ''}">
-                                <td class="p-3 text-xs font-bold text-slate-700 w-1/2">${item}</td>
-                                <td class="p-1">
-                                    <input type="number" step="0.1" value="${d.norm}" ${adminMode ? '' : 'readonly'} 
-                                        onchange="window.updateVal('${catKey}','${key}','norm',this.value)"
-                                        class="w-full p-2 text-center text-xs rounded-lg ${adminMode ? 'bg-orange-50 border border-orange-200' : 'bg-transparent text-slate-300 pointer-events-none'}">
-                                </td>
-                                <td class="p-1">
-                                    <input type="number" step="0.1" value="${d.remainder}" 
-                                        onchange="window.updateVal('${catKey}','${key}','remainder',this.value)"
-                                        class="w-full p-2 text-center text-xs rounded-lg bg-white border border-slate-200 font-bold focus:ring-2 focus:ring-orange-500 outline-none">
-                                </td>
-                                <td class="p-3 text-center">
-                                    <div class="py-1 px-2 rounded-lg text-[10px] font-black ${needsWork ? 'bg-orange-600 text-white' : 'bg-green-100 text-green-700'}">
-                                        ${d.toPrepare.toFixed(1)}
-                                    </div>
-                                </td>
-                            </tr>`;
-                        }).join('')}
-                    </table>
-                </div>`;
+            // ПІДКЛЮЧЕННЯ
+            onValue(ref(db, 'checklist-data'), (snap) => {
+                if (snap.exists()) {
+                    localData = snap.val();
+                } else {
+                    // Створення структури
+                    for (let cat in categories) {
+                        localData[cat] = {};
+                        categories[cat].forEach(item => {
+                            localData[cat][item.replace(/\s+/g, '_')] = Array(7).fill(0).map(() => ({norm:0, remainder:0, toPrepare:0}));
+                        });
+                    }
+                    set(ref(db, 'checklist-data'), localData);
+                }
+                document.getElementById('status-overlay').style.display = 'none';
+                document.getElementById('main-content').style.opacity = '1';
+                render();
+            }, (error) => {
+                logError("Firebase Error: " + error.message);
             });
-            container.innerHTML = html;
-        }
 
-        window.exportToExcel = (allWeek) => {
-            const wb = XLSX.utils.book_new();
-            const date = new Date().toLocaleDateString('uk-UA');
-            const getSheet = (idx) => {
-                let rows = [['Категорія', 'Продукт', 'Норма', 'Залишок', 'Доробити']];
-                Object.entries(categories).forEach(([ck, its]) => {
-                    its.forEach(it => {
-                        const key = it.replace(/[.#$\[\]]/g, '_');
-                        const d = localData[ck][key][idx];
-                        rows.push([ck, it,
+        } catch (e) {
+            logError("System Error: " + e.message);
+        }
+    </script>
+</body>
+</html>
