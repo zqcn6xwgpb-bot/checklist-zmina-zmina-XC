@@ -10,31 +10,35 @@
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0a0a0f; --surface: #111118; --surface2: #18181f; --border: #252530; --accent: #f97316;
-            --text: #e8e8f0; --text-dim: #5a5a70;
+            --bg: #0a0a0f; --surface: #111118; --surface2: #18181f; --border: #252530; 
+            --accent: #f97316; --text: #e8e8f0; --text-dim: #5a5a70;
             --lvl-green: #22c55e; --lvl-purple: #a855f7; --lvl-orange: #f97316; --lvl-red: #ef4444;
         }
-        * { box-sizing: border-box; }
-        body { font-family: 'Syne', sans-serif; background-color: var(--bg); color: var(--text); min-height: 100vh; }
+        .light-theme {
+            --bg: #f4f4f9; --surface: #ffffff; --surface2: #fdfdfd; --border: #e0e0e6; 
+            --accent: #f97316; --text: #1a1a1a; --text-dim: #7a7a8a;
+        }
+        * { box-sizing: border-box; transition: background-color 0.3s, color 0.3s; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Syne', sans-serif; background-color: var(--bg); color: var(--text); min-height: 100vh; margin: 0; }
         
         #auth-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; }
-        .auth-input { width: 280px; background: var(--surface); border: 1px solid var(--border); color: white; text-align: center; font-size: 36px; padding: 20px; border-radius: 20px; outline: none; margin-bottom: 16px; font-family: 'JetBrains Mono'; letter-spacing: 0.4em; }
+        .auth-input { width: 280px; background: var(--surface); border: 1px solid var(--border); color: var(--text); text-align: center; font-size: 36px; padding: 20px; border-radius: 20px; outline: none; margin-bottom: 16px; font-family: 'JetBrains Mono'; letter-spacing: 0.4em; }
         
-        header { background: rgba(10,10,15,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 40; padding: 16px 20px; }
+        header { background: var(--surface); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 40; padding: 12px 20px; }
         .header-inner { max-width: 860px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
 
         main { max-width: 860px; margin: 0 auto; padding: 20px 16px; }
-        .tg-btn { width: 100%; background: #0088cc; color: white; font-weight: 800; padding: 18px; border-radius: 18px; border: none; cursor: pointer; margin-bottom: 25px; text-transform: uppercase; font-size: 11px; box-shadow: 0 8px 24px rgba(0,136,204,0.2); }
+        .tg-btn { width: 100%; background: #0088cc; color: white; font-weight: 800; padding: 18px; border-radius: 18px; border: none; cursor: pointer; margin-bottom: 25px; text-transform: uppercase; font-size: 11px; box-shadow: 0 8px 24px rgba(0,0,136,0.15); }
 
-        .category-block { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; overflow: hidden; margin-bottom: 20px; }
-        .category-header { padding: 14px 20px; background: var(--surface2); color: var(--accent); font-family: 'JetBrains Mono'; font-weight: 700; text-transform: uppercase; font-size: 10px; display: flex; justify-content: space-between; }
+        .category-block { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .category-header { padding: 14px 20px; background: var(--surface2); color: var(--accent); font-family: 'JetBrains Mono'; font-weight: 700; text-transform: uppercase; font-size: 10px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); }
         
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        th { font-family: 'JetBrains Mono'; font-size: 8px; color: var(--text-dim); text-transform: uppercase; padding: 8px; }
-        td { padding: 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        th { font-family: 'JetBrains Mono'; font-size: 8px; color: var(--text-dim); text-transform: uppercase; padding: 10px 8px; }
+        td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 
         input[type="number"] {
-            width: 100%; padding: 12px 2px; text-align: center; border-radius: 12px; font-family: 'JetBrains Mono'; font-weight: 700; border: 1px solid transparent; outline: none; background: rgba(255,255,255,0.03); color: var(--text-dim); font-size: 14px;
+            width: 100%; padding: 12px 2px; text-align: center; border-radius: 12px; font-family: 'JetBrains Mono'; font-weight: 700; border: 1px solid transparent; outline: none; background: rgba(128,128,128,0.08); color: var(--text); font-size: 14px;
         }
         
         .bg-lvl-green { background-color: var(--lvl-green) !important; color: white !important; }
@@ -42,19 +46,21 @@
         .bg-lvl-orange { background-color: var(--lvl-orange) !important; color: white !important; }
         .bg-lvl-red { background-color: var(--lvl-red) !important; color: white !important; }
 
-        .admin-mode input { border: 1px solid var(--border); background: rgba(249,115,22,0.05); color: var(--accent); }
         .day-indicator { font-family: 'JetBrains Mono'; font-size: 9px; text-transform: uppercase; line-height: 1.4; }
-        .current-day-label { color: #888; }
-        .target-day-label { color: var(--accent); }
+        .current-day-label { color: var(--text-dim); }
+        .target-day-label { color: var(--accent); font-weight: 700; }
+
+        .theme-toggle { cursor: pointer; padding: 8px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); font-size: 16px; }
+        .admin-btn { font-size: 16px; padding: 8px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); }
     </style>
 </head>
-<body>
+<body class="dark-theme">
 
     <div id="auth-screen">
         <div style="font-size: 60px; margin-bottom: 10px;">📋</div>
-        <div class="font-bold uppercase tracking-widest mb-1 text-center">ХЦ "Чек-лист заготовок"<br><span class="text-[9px] text-gray-500">СИСТЕМА КОНТРОЛЮ</span></div>
-        <input type="password" id="pass-input" class="auth-input" placeholder="••••">
-        <button class="bg-orange-500 text-white font-bold py-4 px-20 rounded-2xl" onclick="checkAuth()">УВІЙТИ</button>
+        <div class="font-bold uppercase tracking-widest mb-1 text-center">ХЦ "Чек-лист заготовок"</div>
+        <input type="password" id="pass-input" class="auth-input" placeholder="••••" autofocus>
+        <div class="text-[10px] text-gray-500 mb-6 uppercase tracking-widest">натисніть Enter для входу</div>
     </div>
 
     <div id="app" style="display: none;">
@@ -67,7 +73,10 @@
                         <div id="target-day-info" class="target-day-label"></div>
                     </div>
                 </div>
-                <button id="admin-btn" class="text-[10px] bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl text-zinc-500" onclick="toggleAdmin()">🔒 АДМІН</button>
+                <div class="flex items-center gap-2">
+                    <button class="theme-toggle" onclick="toggleTheme()" id="theme-icon">☀️</button>
+                    <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">🔒</button>
+                </div>
             </div>
         </header>
 
@@ -87,44 +96,58 @@
         };
 
         const PASS_GENERAL = "2024", PASS_ADMIN = "3196";
-        const TG_TOKEN = "7906609865:AAGxiiMSSnJcShk5SoxE7eVItyqDcWvyE38";
-        const TG_CHAT = "-1002336484919"; 
-        const THREAD = 15; 
-        const DB_KEY = "checklist-data-v2"; 
+        const TG_TOKEN = "7906609865:AAGxiiMSSnJcShk5SoxE7eVItyqDcWvyE38", TG_CHAT = "-1002336484919", THREAD = 15;
+        const DB_KEY = "checklist-data-v2";
 
         let data = {}, isAdmin = false;
+
+        // ВХІД ПО ENTER
+        document.getElementById('pass-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') checkAuth();
+        });
 
         function checkAuth() {
             if (document.getElementById('pass-input').value === PASS_GENERAL) {
                 document.getElementById('auth-screen').style.display = 'none';
                 document.getElementById('app').style.display = 'block';
                 init();
+            } else if (document.getElementById('pass-input').value !== "") {
+                alert("Невірний код");
+            }
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.getElementById('theme-icon');
+            if (body.classList.contains('light-theme')) {
+                body.classList.remove('light-theme');
+                btn.textContent = '☀️';
+            } else {
+                body.classList.add('light-theme');
+                btn.textContent = '🌙';
             }
         }
 
         function isTomorrowWeekend() {
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
             return [0, 5, 6].includes(tomorrow.getDay()); 
         }
 
         function init() {
-            firebase.initializeApp(firebaseConfig);
+            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
             firebase.database().ref(DB_KEY).on('value', snap => { data = snap.val() || {}; render(); });
             
             const days = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П’ятниця', 'Субота'];
-            const daysTarget = ['Неділю', 'Понеділок', 'Вівторок', 'Середу', 'Четвер', 'П’ятницю', 'Суботу'];
-            
             const today = new Date();
             const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
 
             document.getElementById('current-day-info').textContent = `Сьогодні: ${days[today.getDay()]}, ${today.toLocaleDateString('uk-UA')}`;
-            document.getElementById('target-day-info').textContent = `Готуємо на ${daysTarget[tomorrow.getDay()]} — ${isTomorrowWeekend() ? 'ВИХІДНІ' : 'БУДНІ'}`;
+            document.getElementById('target-day-info').textContent = `План на: ${days[tomorrow.getDay()]} (${isTomorrowWeekend() ? 'ВИХІДНІ' : 'БУДНІ'})`;
         }
 
         function toggleAdmin() {
-            if (!isAdmin && prompt('Код:') === PASS_ADMIN) isAdmin = true; else isAdmin = false;
-            document.getElementById('admin-btn').textContent = isAdmin ? '🔓 ГОТОВО' : '🔒 АДМІН';
+            if (!isAdmin && prompt('Код адміна:') === PASS_ADMIN) isAdmin = true; else isAdmin = false;
+            document.getElementById('admin-btn').textContent = isAdmin ? '🔓' : '🔒';
             render();
         }
 
@@ -146,7 +169,7 @@
         function render() {
             const container = document.getElementById('content');
             const we = isTomorrowWeekend();
-            let h = isAdmin ? `<button onclick="addCat()" class="w-full p-4 border-dashed border border-zinc-800 rounded-2xl mb-4 text-[9px] text-zinc-600 uppercase tracking-widest">+ Новий Розділ</button>` : '';
+            let h = isAdmin ? `<button onclick="addCat()" class="w-full p-4 border-dashed border border-zinc-500 rounded-2xl mb-4 text-[9px] opacity-50 uppercase tracking-widest">+ Новий Розділ</button>` : '';
 
             for (let c in data) {
                 h += `<div class="category-block">
@@ -155,8 +178,8 @@
                         <thead><tr>
                             <th style="width:40%; text-align:left; padding-left:15px;">Товар</th>
                             <th>ЗАЛИШОК</th>
-                            <th>${isAdmin ? 'БД' : ''}</th>
-                            <th>${isAdmin ? 'ВХ' : 'НОРМА'}</th>
+                            <th style="font-size:7px;">${isAdmin ? 'НОРМА БД' : ''}</th>
+                            <th style="font-size:7px;">${isAdmin ? 'НОРМА ВХ' : 'НОРМА'}</th>
                         </tr></thead><tbody>`;
 
                 for (let i in data[c]) {
@@ -165,14 +188,17 @@
                     const targetNorm = we ? item.we : item.wd;
                     const colorClass = getLvl(item.stock, targetNorm);
 
-                    h += `<tr class="${isAdmin ? 'admin-mode' : ''}">
-                        <td class="text-[13px] font-bold pl-4">${isAdmin ? `<button onclick="delItem('${c}','${i}')" class="text-red-900 mr-2">✕</button>` : ''}${i.replace(/_/g, ' ')}</td>
+                    h += `<tr>
+                        <td class="text-[13px] font-bold pl-4">
+                            ${isAdmin ? `<span onclick="delItem('${c}','${i}')" class="text-red-500 mr-2 cursor-pointer">✕</span>` : ''}
+                            ${i.replace(/_/g, ' ')}
+                        </td>
                         <td><input type="number" class="${colorClass}" value="${item.stock || ''}" placeholder="0" onchange="update('${c}','${i}','stock',this.value)"></td>
                         <td>${isAdmin ? `<input type="number" value="${item.wd}" onchange="update('${c}','${i}','wd',this.value)">` : ''}</td>
                         <td><input type="number" value="${isAdmin ? item.we : targetNorm}" ${!isAdmin ? 'readonly' : `onchange="update('${c}','${i}','we',this.value)"`}></td>
                     </tr>`;
                 }
-                if (isAdmin) h += `<tr><td colspan="4" class="p-3 text-center"><button class="text-[9px] text-zinc-600" onclick="addItem('${c}')">+ ДОДАТИ ТОВАР</button></td></tr>`;
+                if (isAdmin) h += `<tr><td colspan="4" class="p-3 text-center"><button class="text-[9px] opacity-50" onclick="addItem('${c}')">+ ДОДАТИ ТОВАР</button></td></tr>`;
                 h += `</tbody></table></div>`;
             }
             container.innerHTML = h;
@@ -181,7 +207,7 @@
         async function sendToTelegram() {
             const we = isTomorrowWeekend();
             const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-            let msg = `🚀 *ХЦ ДОРОБИТИ ЗАВТРА*\n📅 План на: *${tomorrow.toLocaleDateString('uk-UA')}* (${we ? "Вихідні" : "Будні"})\n━━━━━━━━━━━━━\n`;
+            let msg = `🚀 *ХЦ: ДОРОБИТИ НА ЗАВТРА*\n📅 План на: *${tomorrow.toLocaleDateString('uk-UA')}* (${we ? "Вихідні" : "Будні"})\n━━━━━━━━━━━━━\n`;
             let has = false;
 
             for (let c in data) {
@@ -200,13 +226,15 @@
                 }
                 if (fnd) msg += sec;
             }
-
-            if (!has) return alert("Все готово!");
-            await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ chat_id: TG_CHAT, message_thread_id: THREAD, text: msg, parse_mode: 'Markdown' })
-            });
-            alert("✅ Відправлено!");
+            if (!has) return alert("Все готово, доробок немає!");
+            
+            try {
+                await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ chat_id: TG_CHAT, message_thread_id: THREAD, text: msg, parse_mode: 'Markdown' })
+                });
+                alert("✅ Відправлено у Telegram!");
+            } catch(e) { alert("Помилка відправки"); }
         }
 
         function addCat() { const n = prompt('Розділ:'); if(n) { data[n.toUpperCase()] = {_init:true}; firebase.database().ref(DB_KEY).set(data); } }
