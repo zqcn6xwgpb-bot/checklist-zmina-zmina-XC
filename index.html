@@ -3,544 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ХЦ Баранчик - Чек-лист</title>
+    <title>ХЦ "Чек-лист заготовок"</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0a0a0f;
-            --surface: #111118;
-            --surface2: #18181f;
-            --border: #252530;
-            --accent: #f97316;
-            --accent-dim: rgba(249,115,22,0.15);
-            --accent-glow: rgba(249,115,22,0.35);
-            --text: #e8e8f0;
-            --text-dim: #5a5a70;
-            --text-muted: #35354a;
-            --green: #22c55e;
-            --green-dim: rgba(34,197,94,0.12);
-            --red: #ef4444;
+            --bg: #0a0a0f; --surface: #111118; --surface2: #18181f; --border: #252530; --accent: #f97316;
+            --text: #e8e8f0; --text-dim: #5a5a70;
+            --lvl-green: #22c55e; --lvl-purple: #a855f7; --lvl-orange: #f97316; --lvl-red: #ef4444;
         }
-
         * { box-sizing: border-box; }
+        body { font-family: 'Syne', sans-serif; background-color: var(--bg); color: var(--text); min-height: 100vh; }
+        
+        #auth-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; }
+        .auth-input { width: 280px; background: var(--surface); border: 1px solid var(--border); color: white; text-align: center; font-size: 36px; padding: 20px; border-radius: 20px; outline: none; margin-bottom: 16px; font-family: 'JetBrains Mono'; letter-spacing: 0.4em; }
+        
+        header { background: rgba(10,10,15,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 40; padding: 16px 20px; }
+        .header-inner { max-width: 860px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
 
-        body {
-            font-family: 'Syne', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            overflow-x: hidden;
-            min-height: 100vh;
-        }
+        main { max-width: 860px; margin: 0 auto; padding: 20px 16px; }
+        .tg-btn { width: 100%; background: #0088cc; color: white; font-weight: 800; padding: 18px; border-radius: 18px; border: none; cursor: pointer; margin-bottom: 25px; text-transform: uppercase; font-size: 11px; box-shadow: 0 8px 24px rgba(0,136,204,0.2); }
 
-        body::before {
-            content: '';
-            position: fixed;
-            top: -40%;
-            left: -20%;
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, rgba(249,115,22,0.06) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
-        }
+        .category-block { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; overflow: hidden; margin-bottom: 20px; }
+        .category-header { padding: 14px 20px; background: var(--surface2); color: var(--accent); font-family: 'JetBrains Mono'; font-weight: 700; text-transform: uppercase; font-size: 10px; display: flex; justify-content: space-between; }
+        
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th { font-family: 'JetBrains Mono'; font-size: 8px; color: var(--text-dim); text-transform: uppercase; padding: 8px; }
+        td { padding: 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 
-        /* AUTH SCREEN */
-        #auth-screen {
-            position: fixed;
-            inset: 0;
-            background: var(--bg);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 999;
-            gap: 0;
-        }
-
-        .auth-logo {
-            font-size: 64px;
-            line-height: 1;
-            margin-bottom: 20px;
-            filter: drop-shadow(0 0 30px rgba(249,115,22,0.4));
-            animation: pulse-logo 3s ease-in-out infinite;
-        }
-
-        @keyframes pulse-logo {
-            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 30px rgba(249,115,22,0.4)); }
-            50% { transform: scale(1.05); filter: drop-shadow(0 0 50px rgba(249,115,22,0.6)); }
-        }
-
-        .auth-title {
-            font-size: 22px;
-            font-weight: 800;
-            letter-spacing: 0.18em;
-            color: var(--text);
-            text-transform: uppercase;
-            margin-bottom: 6px;
-        }
-
-        .auth-sub {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 9px;
-            color: var(--text-dim);
-            letter-spacing: 0.35em;
-            text-transform: uppercase;
-            margin-bottom: 48px;
-        }
-
-        #pass-input {
-            width: 280px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            color: var(--text);
-            text-align: center;
-            font-size: 36px;
-            font-family: 'JetBrains Mono', monospace;
-            letter-spacing: 0.4em;
-            padding: 20px;
-            border-radius: 20px;
-            outline: none;
-            transition: all 0.2s;
-            margin-bottom: 16px;
-        }
-
-        #pass-input:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-dim), 0 20px 40px rgba(0,0,0,0.4);
-        }
-
-        .auth-btn {
-            width: 280px;
-            background: var(--accent);
-            color: white;
-            font-family: 'Syne', sans-serif;
-            font-weight: 800;
-            font-size: 12px;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            padding: 18px;
-            border-radius: 20px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.15s;
-            box-shadow: 0 8px 32px var(--accent-glow);
-        }
-
-        .auth-btn:active { transform: scale(0.97); }
-
-        /* HEADER */
-        header {
-            background: rgba(10,10,15,0.85);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 40;
-            padding: 16px 20px;
-        }
-
-        .header-inner {
-            max-width: 860px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo-mark {
-            font-size: 18px;
-            font-weight: 800;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: var(--text);
-        }
-
-        .logo-sub {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 8px;
-            color: var(--accent);
-            letter-spacing: 0.3em;
-            text-transform: uppercase;
-            margin-top: 3px;
-        }
-
-        .admin-btn {
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            color: var(--text-dim);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 9px;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            padding: 8px 16px;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .admin-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-        /* MAIN */
-        #main-content { display: none; }
-
-        main {
-            max-width: 860px;
-            margin: 0 auto;
-            padding: 24px 16px 100px;
-            position: relative;
-            z-index: 1;
-        }
-
-        /* DAY SELECTOR */
-        .days-row {
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            padding-bottom: 24px;
-            scrollbar-width: none;
-        }
-
-        .days-row::-webkit-scrollbar { display: none; }
-
-        .day-btn {
-            flex: 1;
-            min-width: 52px;
-            padding: 12px 6px;
-            border-radius: 14px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .day-btn.active {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: white;
-            box-shadow: 0 4px 20px var(--accent-glow);
-        }
-
-        /* TELEGRAM BUTTON */
-        .tg-btn {
-            width: 100%;
-            background: linear-gradient(135deg, #0088cc, #006aaa);
-            color: white;
-            font-family: 'Syne', sans-serif;
-            font-weight: 800;
-            font-size: 11px;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            padding: 18px;
-            border-radius: 18px;
-            border: none;
-            cursor: pointer;
-            margin-bottom: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            box-shadow: 0 8px 24px rgba(0,136,204,0.25);
-            transition: all 0.15s;
-        }
-
-        .tg-btn:active { transform: scale(0.98); }
-
-        /* CATEGORY */
-        .category-block {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-
-        .category-header {
-            padding: 16px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            background: var(--surface2);
-        }
-
-        .category-title {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            color: var(--accent);
-        }
-
-        .del-cat-btn {
-            font-size: 9px;
-            color: var(--text-muted);
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-family: 'JetBrains Mono', monospace;
-            letter-spacing: 0.05em;
-            transition: color 0.2s;
-        }
-
-        .del-cat-btn:hover { color: var(--red); }
-
-        /* TABLE */
-        table { width: 100%; border-collapse: collapse; }
-
-        tr { border-bottom: 1px solid var(--border); }
-        tr:last-child { border-bottom: none; }
-        tr:hover { background: rgba(255,255,255,0.01); }
-
-        td { padding: 4px 6px; vertical-align: middle; }
-
-        .item-name {
-            padding: 14px 20px;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text);
-            width: 42%;
-        }
-
-        .item-name .del-item {
-            color: var(--text-muted);
-            margin-right: 10px;
-            cursor: pointer;
-            font-size: 11px;
-            transition: color 0.2s;
-            background: none;
-            border: none;
-        }
-
-        .item-name .del-item:hover { color: var(--red); }
-
-        /* INPUTS */
         input[type="number"] {
-            width: 100%;
-            padding: 10px 8px;
-            text-align: center;
-            border-radius: 12px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            font-weight: 700;
-            border: 1px solid transparent;
-            outline: none;
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            -moz-appearance: textfield;
-            background: transparent;
-            color: var(--text-dim);
+            width: 100%; padding: 12px 2px; text-align: center; border-radius: 12px; font-family: 'JetBrains Mono'; font-weight: 700; border: 1px solid transparent; outline: none; background: rgba(255,255,255,0.03); color: var(--text-dim); font-size: 14px;
         }
+        
+        .bg-lvl-green { background-color: var(--lvl-green) !important; color: white !important; }
+        .bg-lvl-purple { background-color: var(--lvl-purple) !important; color: white !important; }
+        .bg-lvl-orange { background-color: var(--lvl-orange) !important; color: white !important; }
+        .bg-lvl-red { background-color: var(--lvl-red) !important; color: white !important; }
 
-        input[type="number"]::-webkit-inner-spin-button,
-        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
-
-        input[type="number"]:focus {
-            transform: scale(1.25) translateY(-2px);
-            z-index: 100;
-            position: relative;
-            background: var(--surface2) !important;
-            border-color: var(--accent) !important;
-            color: var(--text) !important;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.5) !important;
-        }
-
-        td:has(input:focus) { z-index: 50; position: relative; }
-
-        .input-norm {
-            background: transparent;
-            color: var(--text-muted);
-        }
-
-        .input-norm-admin {
-            background: rgba(249,115,22,0.07);
-            border-color: rgba(249,115,22,0.15);
-            color: var(--accent);
-        }
-
-        .input-remainder {
-            background: var(--surface2);
-            border-color: var(--border);
-            color: var(--text);
-        }
-
-        /* BADGE */
-        .badge {
-            padding: 8px 12px;
-            border-radius: 10px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-            font-weight: 700;
-            min-width: 54px;
-            display: inline-block;
-            text-align: center;
-        }
-
-        .badge-ok {
-            background: var(--green-dim);
-            color: var(--green);
-        }
-
-        .badge-warn {
-            background: rgba(239,68,68,0.12);
-            color: var(--red);
-        }
-
-        .badge-prep {
-            background: rgba(249,115,22,0.12);
-            color: var(--accent);
-        }
-
-        .critical-blink {
-            animation: blink-crit 0.9s infinite alternate;
-        }
-
-        @keyframes blink-crit {
-            from { background: rgba(239,68,68,0.15); color: var(--red); transform: scale(1); }
-            to { background: rgba(239,68,68,0.28); color: #ff6b6b; transform: scale(1.04); }
-        }
-
-        /* ADD ITEM ROW */
-        .add-row td {
-            padding: 12px 16px;
-            background: rgba(255,255,255,0.01);
-            border-top: 1px solid var(--border);
-        }
-
-        .add-row-inner { display: flex; gap: 10px; }
-
-        input[type="text"] {
-            flex: 1;
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            color: var(--text);
-            font-family: 'Syne', sans-serif;
-            font-size: 11px;
-            padding: 12px 16px;
-            border-radius: 12px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        input[type="text"]:focus { border-color: var(--accent); }
-
-        .add-item-btn {
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            color: var(--text-dim);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 9px;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            padding: 12px 16px;
-            border-radius: 12px;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s;
-        }
-
-        .add-item-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-        /* ADD CATEGORY BTN */
-        .add-cat-btn {
-            width: 100%;
-            padding: 16px;
-            margin-bottom: 24px;
-            background: transparent;
-            border: 1px dashed var(--border);
-            color: var(--text-muted);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 9px;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            border-radius: 16px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .add-cat-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-        /* BOTTOM ACTIONS */
-        .bottom-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 40px;
-        }
-
-        .action-btn {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 9px;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            padding: 16px;
-            border-radius: 16px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .action-btn:hover { border-color: var(--border); color: var(--text); }
-
-        /* COLUMN LABELS */
-        .col-label {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 8px;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            padding: 8px 8px 4px;
-            text-align: center;
-        }
+        .admin-mode input { border: 1px solid var(--border); background: rgba(249,115,22,0.05); color: var(--accent); }
+        .day-indicator { font-family: 'JetBrains Mono'; font-size: 9px; text-transform: uppercase; line-height: 1.4; }
+        .current-day-label { color: #888; }
+        .target-day-label { color: var(--accent); }
     </style>
 </head>
 <body>
 
     <div id="auth-screen">
-        <div class="auth-logo">🐑</div>
-        <div class="auth-title">ХЦ Баранчик</div>
-        <div class="auth-sub">Система контролю залишків</div>
-        <input type="password" id="pass-input" inputmode="numeric" pattern="[0-9]*"
-               autocomplete="one-time-code" autofocus placeholder="• • • •">
-        <button class="auth-btn" onclick="checkAuth()">Увійти</button>
+        <div style="font-size: 60px; margin-bottom: 10px;">📋</div>
+        <div class="font-bold uppercase tracking-widest mb-1 text-center">ХЦ "Чек-лист заготовок"<br><span class="text-[9px] text-gray-500">СИСТЕМА КОНТРОЛЮ</span></div>
+        <input type="password" id="pass-input" class="auth-input" placeholder="••••">
+        <button class="bg-orange-500 text-white font-bold py-4 px-20 rounded-2xl" onclick="checkAuth()">УВІЙТИ</button>
     </div>
 
-    <header>
-        <div class="header-inner">
-            <div>
-                <div class="logo-mark">🐑 ХЦ Баранчик</div>
-                <div class="logo-sub">Чек-лист заготівлі</div>
+    <div id="app" style="display: none;">
+        <header>
+            <div class="header-inner">
+                <div>
+                    <div class="font-extrabold uppercase text-sm tracking-tighter">📋 ХЦ "Чек-лист заготовок"</div>
+                    <div class="day-indicator">
+                        <div id="current-day-info" class="current-day-label"></div>
+                        <div id="target-day-info" class="target-day-label"></div>
+                    </div>
+                </div>
+                <button id="admin-btn" class="text-[10px] bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl text-zinc-500" onclick="toggleAdmin()">🔒 АДМІН</button>
             </div>
-            <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">🔒 Адмін</button>
-        </div>
-    </header>
+        </header>
 
-    <main id="main-content">
-        <div id="days-row" class="days-row"></div>
-
-        <button class="tg-btn" onclick="sendToTelegram()">
-            <span>✈️</span> Відправити: ХЦ Доробити Завтра
-        </button>
-
-        <div id="content"></div>
-
-        <div class="bottom-actions">
-            <button class="action-btn" onclick="exportExcel()">📊 Експорт Excel</button>
-            <button class="action-btn" onclick="window.print()">🖨️ Друк</button>
-        </div>
-    </main>
+        <main>
+            <button class="tg-btn" onclick="sendToTelegram()">✈️ ВІДПРАВИТИ ЗВІТ У ГРУПУ</button>
+            <div id="content"></div>
+        </main>
+    </div>
 
     <script>
         const firebaseConfig = {
@@ -551,184 +86,133 @@
             appId: "1:374378353806:web:95ff4b94c14fad8bece5df"
         };
 
-        const PASS_GENERAL = "2024";
-        const PASS_ADMIN = "3196";
+        const PASS_GENERAL = "2024", PASS_ADMIN = "3196";
         const TG_TOKEN = "7906609865:AAGxiiMSSnJcShk5SoxE7eVItyqDcWvyE38";
-        const TG_CHAT_ID = "-1002336484919";
+        const TG_CHAT = "-1002336484919"; 
+        const THREAD = 15; 
+        const DB_KEY = "checklist-data-v2"; 
 
-        let data = {};
-        let day = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
-        let isAdmin = false;
+        let data = {}, isAdmin = false;
 
         function checkAuth() {
-            if (document.getElementById('pass-input').value.trim() === PASS_GENERAL) {
+            if (document.getElementById('pass-input').value === PASS_GENERAL) {
                 document.getElementById('auth-screen').style.display = 'none';
-                document.getElementById('main-content').style.display = 'block';
-                initApp();
-            } else {
-                alert('Невірний PIN!');
-                document.getElementById('pass-input').value = '';
+                document.getElementById('app').style.display = 'block';
+                init();
             }
         }
 
-        document.getElementById('pass-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') checkAuth();
-        });
+        function isTomorrowWeekend() {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            return [0, 5, 6].includes(tomorrow.getDay()); 
+        }
 
-        function initApp() {
+        function init() {
             firebase.initializeApp(firebaseConfig);
-            const db = firebase.database();
-            db.ref('checklist-data').on('value', snap => { data = snap.val() || {}; render(); });
-            window.saveData = () => db.ref('checklist-data').set(data);
+            firebase.database().ref(DB_KEY).on('value', snap => { data = snap.val() || {}; render(); });
+            
+            const days = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П’ятниця', 'Субота'];
+            const daysTarget = ['Неділю', 'Понеділок', 'Вівторок', 'Середу', 'Четвер', 'П’ятницю', 'Суботу'];
+            
+            const today = new Date();
+            const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+
+            document.getElementById('current-day-info').textContent = `Сьогодні: ${days[today.getDay()]}, ${today.toLocaleDateString('uk-UA')}`;
+            document.getElementById('target-day-info').textContent = `Готуємо на ${daysTarget[tomorrow.getDay()]} — ${isTomorrowWeekend() ? 'ВИХІДНІ' : 'БУДНІ'}`;
         }
 
         function toggleAdmin() {
-            if (!isAdmin && prompt('Введіть код адміністратора:') === PASS_ADMIN) isAdmin = true;
-            else if (isAdmin) isAdmin = false;
+            if (!isAdmin && prompt('Код:') === PASS_ADMIN) isAdmin = true; else isAdmin = false;
+            document.getElementById('admin-btn').textContent = isAdmin ? '🔓 ГОТОВО' : '🔒 АДМІН';
             render();
-            document.getElementById('admin-btn').textContent = isAdmin ? '🔓 Готово' : '🔒 Адмін';
         }
 
-        function setDay(i) { day = i; render(); }
-
-        function update(c, k, f, v) {
-            const val = parseFloat(v) || 0;
-            data[c][k][day][f] = val;
-            data[c][k][day].toPrepare = Math.max(0, data[c][k][day].norm - data[c][k][day].remainder);
-            window.saveData();
+        function update(c, i, f, v) {
+            if(!data[c][i]) data[c][i] = { wd: 0, we: 0, stock: 0 };
+            data[c][i][f] = parseFloat(v) || 0;
+            firebase.database().ref(DB_KEY).set(data);
         }
 
-        async function sendToTelegram() {
-            const shortDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
-            let message = `🚀 *ХЦ доробити завтра (${shortDays[day]}):* \n━━━━━━━━━━━━━\n`;
-            let hasItems = false;
-            for (let c in data) {
-                let section = `\n📂 *${c.toUpperCase()}*\n`;
-                let found = false;
-                for (let k in data[c]) {
-                    if (k === "_init") continue;
-                    const d = data[c][k][day];
-                    if (d.toPrepare > 0) {
-                        section += `• ${k.replace(/_/g, ' ')} ➜ *${d.toPrepare.toFixed(1)}*\n`;
-                        found = true; hasItems = true;
-                    }
-                }
-                if (found) message += section;
-            }
-            if (!hasItems) { alert("✅ Все готово!"); return; }
-            try {
-                await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: TG_CHAT_ID, text: message, parse_mode: 'Markdown' })
-                });
-                alert("✅ Відправлено!");
-            } catch (e) { alert("Помилка відправки!"); }
-        }
-
-        function addCategory() {
-            const n = prompt('Назва розділу:');
-            if (n) { data[n] = { "_init": true }; window.saveData(); }
-        }
-
-        function deleteCategory(c) {
-            if (confirm('Видалити розділ "' + c + '"?')) { delete data[c]; window.saveData(); }
-        }
-
-        function addItem(cat) {
-            const input = document.getElementById(`in-${cat.replace(/\s+/g, '_')}`);
-            if (input.value.trim()) {
-                const k = input.value.trim().replace(/\s+/g, '_');
-                data[cat][k] = Array(7).fill(0).map(() => ({ norm: 0, remainder: 0, toPrepare: 0 }));
-                if (data[cat]._init) delete data[cat]._init;
-                window.saveData();
-                input.value = '';
-            }
-        }
-
-        function deleteItem(cat, key) {
-            if (confirm('Видалити "' + key.replace(/_/g, ' ') + '"?')) { delete data[cat][key]; window.saveData(); }
+        function getLvl(stock, norm) {
+            if (!norm || norm <= 0 || stock === undefined || stock === '') return '';
+            const p = (stock / norm) * 100;
+            if (p >= 80) return 'bg-lvl-green';
+            if (p >= 50) return 'bg-lvl-purple';
+            if (p >= 40) return 'bg-lvl-orange';
+            return 'bg-lvl-red';
         }
 
         function render() {
-            const shortDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
-
-            document.getElementById('days-row').innerHTML = shortDays.map((d, i) =>
-                `<button onclick="setDay(${i})" class="day-btn ${i === day ? 'active' : ''}">${d}</button>`
-            ).join('');
-
-            let h = isAdmin ? `<button onclick="addCategory()" class="add-cat-btn">+ Додати новий розділ</button>` : '';
+            const container = document.getElementById('content');
+            const we = isTomorrowWeekend();
+            let h = isAdmin ? `<button onclick="addCat()" class="w-full p-4 border-dashed border border-zinc-800 rounded-2xl mb-4 text-[9px] text-zinc-600 uppercase tracking-widest">+ Новий Розділ</button>` : '';
 
             for (let c in data) {
-                const catId = c.replace(/\s+/g, '_');
                 h += `<div class="category-block">
-                    <div class="category-header">
-                        <span class="category-title">${c}</span>
-                        ${isAdmin ? `<button onclick="deleteCategory('${c}')" class="del-cat-btn">✕ видалити</button>` : ''}
-                    </div>
+                    <div class="category-header"><span>${c}</span> ${isAdmin ? `<button onclick="delCat('${c}')">✕</button>` : ''}</div>
                     <table>
-                        <tr>
-                            <td class="col-label" style="width:42%;text-align:left;padding-left:20px;">Продукт</td>
-                            <td class="col-label" style="width:17%;">Норма</td>
-                            <td class="col-label" style="width:17%;">Залишок</td>
-                            <td class="col-label" style="width:24%;text-align:right;padding-right:20px;">Доробити</td>
-                        </tr>`;
+                        <thead><tr>
+                            <th style="width:40%; text-align:left; padding-left:15px;">Товар</th>
+                            <th>ЗАЛИШОК</th>
+                            <th>${isAdmin ? 'БД' : ''}</th>
+                            <th>${isAdmin ? 'ВХ' : 'НОРМА'}</th>
+                        </tr></thead><tbody>`;
 
-                for (let k in data[c]) {
-                    if (k === "_init") continue;
-                    const d = data[c][k][day] || { norm: 0, remainder: 0, toPrepare: 0 };
-                    const isCrit = d.norm > 0 && d.toPrepare > (d.norm * 0.5);
-                    const isOk = d.toPrepare <= 0;
+                for (let i in data[c]) {
+                    if(i === "_init") continue;
+                    const item = data[c][i];
+                    const targetNorm = we ? item.we : item.wd;
+                    const colorClass = getLvl(item.stock, targetNorm);
 
-                    let badgeClass = isOk ? 'badge badge-ok' : (isCrit ? 'badge critical-blink' : 'badge badge-prep');
-                    let badgeVal = isOk ? '✓' : Number(d.toPrepare).toFixed(1);
-
-                    h += `<tr>
-                        <td class="item-name">
-                            ${isAdmin ? `<button class="del-item" onclick="deleteItem('${c}','${k}')">✕</button>` : ''}
-                            ${k.replace(/_/g, ' ')}
-                        </td>
-                        <td style="padding:4px 4px;">
-                            <input type="number" value="${d.norm}" ${isAdmin ? '' : 'readonly'}
-                                onfocus="this.select()" onchange="update('${c}','${k}','norm',this.value)"
-                                class="input-norm ${isAdmin ? 'input-norm-admin' : ''}">
-                        </td>
-                        <td style="padding:4px 4px;">
-                            <input type="number" value="${d.remainder}"
-                                onfocus="this.select()" onchange="update('${c}','${k}','remainder',this.value)"
-                                class="input-remainder">
-                        </td>
-                        <td style="padding:4px 20px 4px 4px; text-align:right;">
-                            <span class="${badgeClass}">${badgeVal}</span>
-                        </td>
+                    h += `<tr class="${isAdmin ? 'admin-mode' : ''}">
+                        <td class="text-[13px] font-bold pl-4">${isAdmin ? `<button onclick="delItem('${c}','${i}')" class="text-red-900 mr-2">✕</button>` : ''}${i.replace(/_/g, ' ')}</td>
+                        <td><input type="number" class="${colorClass}" value="${item.stock || ''}" placeholder="0" onchange="update('${c}','${i}','stock',this.value)"></td>
+                        <td>${isAdmin ? `<input type="number" value="${item.wd}" onchange="update('${c}','${i}','wd',this.value)">` : ''}</td>
+                        <td><input type="number" value="${isAdmin ? item.we : targetNorm}" ${!isAdmin ? 'readonly' : `onchange="update('${c}','${i}','we',this.value)"`}></td>
                     </tr>`;
                 }
+                if (isAdmin) h += `<tr><td colspan="4" class="p-3 text-center"><button class="text-[9px] text-zinc-600" onclick="addItem('${c}')">+ ДОДАТИ ТОВАР</button></td></tr>`;
+                h += `</tbody></table></div>`;
+            }
+            container.innerHTML = h;
+        }
 
-                if (isAdmin) {
-                    h += `<tr class="add-row"><td colspan="4">
-                        <div class="add-row-inner">
-                            <input type="text" id="in-${catId}" placeholder="Назва позиції...">
-                            <button onclick="addItem('${c}')" class="add-item-btn">+ Додати</button>
-                        </div>
-                    </td></tr>`;
+        async function sendToTelegram() {
+            const we = isTomorrowWeekend();
+            const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+            let msg = `🚀 *ХЦ ДОРОБИТИ ЗАВТРА*\n📅 План на: *${tomorrow.toLocaleDateString('uk-UA')}* (${we ? "Вихідні" : "Будні"})\n━━━━━━━━━━━━━\n`;
+            let has = false;
+
+            for (let c in data) {
+                let sec = `\n📂 *${c.toUpperCase()}*\n`;
+                let fnd = false;
+                for (let i in data[c]) {
+                    const d = data[c][i];
+                    const norm = we ? d.we : d.wd;
+                    const toPrep = Math.max(0, norm - d.stock);
+                    if (toPrep > 0) {
+                        const p = (d.stock / norm) * 100;
+                        let icon = p >= 80 ? "🟢" : p >= 50 ? "🟣" : p >= 40 ? "🟠" : "🔴";
+                        sec += `${icon} ${i.replace(/_/g, ' ')} ➜ *${toPrep.toFixed(1)}*\n`;
+                        fnd = true; has = true;
+                    }
                 }
-                h += `</table></div>`;
+                if (fnd) msg += sec;
             }
 
-            document.getElementById('content').innerHTML = h;
+            if (!has) return alert("Все готово!");
+            await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ chat_id: TG_CHAT, message_thread_id: THREAD, text: msg, parse_mode: 'Markdown' })
+            });
+            alert("✅ Відправлено!");
         }
 
-        function exportExcel() {
-            const wb = XLSX.utils.book_new();
-            let rows = [['Категорія', 'Продукт', 'Норма', 'Залишок', 'Доробити']];
-            for (let c in data) for (let k in data[c]) {
-                if (k === "_init") continue;
-                const d = data[c][k][day];
-                rows.push([c, k.replace(/_/g, ' '), d.norm, d.remainder, d.toPrepare]);
-            }
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Звіт");
-            XLSX.writeFile(wb, "ХЦ_Баранчик_Звіт.xlsx");
-        }
+        function addCat() { const n = prompt('Розділ:'); if(n) { data[n.toUpperCase()] = {_init:true}; firebase.database().ref(DB_KEY).set(data); } }
+        function delCat(c) { if(confirm('Видалити '+c+'?')) { delete data[c]; firebase.database().ref(DB_KEY).set(data); } }
+        function addItem(c) { const n = prompt('Товар:'); if(n) { data[c][n.replace(/\s+/g, '_')] = {wd:0, we:0, stock:0}; firebase.database().ref(DB_KEY).set(data); } }
+        function delItem(c, i) { if(confirm('Видалити '+i+'?')) { delete data[c][i]; firebase.database().ref(DB_KEY).set(data); } }
     </script>
 </body>
 </html>
